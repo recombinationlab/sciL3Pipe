@@ -1,0 +1,49 @@
+__default__:
+    time: "05:00:00"
+    mem: 20g
+    cpus: 1
+    nodes: 1
+    output: "{out_dir}logs/cluster/{rule}.{wildcards.sample}.out"
+    error: "{out_dir}logs/cluster/{rule}.{wildcards.sample}.err"
+bgzip_sss_fastq:
+    time: "01:00:00"
+    mem: 2g
+    cpus: 10
+    nodes: 1
+    output: "{out_dir}logs/cluster/{rule}.{wildcards.sample}.out"
+    error: "{out_dir}logs/cluster/{rule}.{wildcards.sample}.err"
+cutadapt:
+    time: "5:00:00"
+    mem: 5g
+    cpus: 10
+    nodes: 1
+    output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
+    error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
+attach_tn5_barcodes:
+    time: "1:00:00"
+    mem: 2g
+    cpus: 10
+    nodes: 1
+    output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
+    error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
+bowtie2_align_pe:
+    time: "5:00:00"
+    mem: 5g
+    cpus: 10
+    nodes: 1
+    output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
+    error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
+bwa_align_pe:
+    time: "5:00:00"
+    mem: 5g
+    cpus: 10
+    nodes: 1
+    output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
+    error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
+sort_index_markdup_pe:
+    time: "5:00:00"
+    mem: 5g
+    cpus: 10
+    nodes: 1
+    output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
+    error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"

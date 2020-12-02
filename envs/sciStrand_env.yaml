@@ -1,0 +1,17 @@
+channels:
+  - bioconda
+  - anaconda
+  - conda-forge
+dependencies:
+  - coreutils=8.32
+  - bwa=0.7.17
+  - bowtie2=2.4.2
+  - samtools=1.9
+  - pysam=0.15.3
+  - argparse=1.4.0
+  - matplotlib=3.3.2
+  - bedtools=2.29.2
+  - pyfastx=0.7.0
+  - python-levenshtein=0.12.0
+  - pigz=2.4
+  - cutadapt=3.0

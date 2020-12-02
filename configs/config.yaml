@@ -1,0 +1,32 @@
+aligner: "bowtie2"
+# output directory (include trailing /)
+output_dir: "/mnt/data/sci-l3/test/"
+assembly: "hg38"
+################################################################################
+# SSS extract and split
+################################################################################
+# fastq file location produced by fastq2json.py
+fastqs: "/mnt/data/sci-l3/raw_fastq/samples.json"
+# samples with corresponding SSS barcode file, must match fastqs
+samples: 
+    yi292: "/mnt/data/Projects/sciStrand-seq/barcodes/barcode_sss_lib292.txt"
+sss_mismatches: 0
+rt_mismatches: 3
+rt_primer: GGGATGCAGCTCGCTCCTG
+################################################################################
+# Tn5 and ligation barcode
+################################################################################
+# the round1 barcode list (on tn5) for splitting single cells
+tn5_barcodes: "barcodes/barcode_tn5.txt"
+# the round2 barcode list (by ligation) for splitting single cells
+ligation_barcodes: "barcodes/barcode_ligation_104.txt"
+tn5_mismatches: 1
+ligation_mismatches: 1
+################################################################################   
+# Indexes
+################################################################################
+hybrid_reference: True
+bwa_index:
+    hg38: "/mnt/data/genomes/hybrid/GRCh38.p13_GRCm38.p6.chr"
+bowtie2_index:
+    hg38: "/mnt/data/genomes/hybrid/GRCh38.p13_GRCm38.p6.chr"

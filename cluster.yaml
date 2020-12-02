@@ -47,3 +47,11 @@ sort_index_markdup_pe:
     nodes: 1
     output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
     error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
+qc_plots:
+    time: "5:00:00"
+    mem: 5g
+    cpus: 10
+    nodes: 1
+    output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
+    error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
+ 

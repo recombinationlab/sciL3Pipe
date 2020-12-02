@@ -5,7 +5,7 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 # %matplotlib inline
-from contextlib import nullcontext # requires python 3.7+
+from contextlib import contextmanager
 
 
 def parse_arguments(args=None):
@@ -97,8 +97,8 @@ def parse_arguments(args=None):
 def main():
     args = parse_arguments()
 
-    # test args
-    # args = parse_arguments('--edit_max 4 --edit_min 0 --hybrid_reference ' \
+    # # test args
+    # args = parse_arguments('--edit_max 0 --edit_min 0 --hybrid_reference ' \
     #                          '-i /mnt/data/Projects/sci_lianti/yi293_TTCGAG.PE.bwa.hg38.collate.bam ' \
     #                          '--insert_max 1000 --insert_min 0 --mapq_max 255 --mapq_min 0 ' \
     #                          '-o /mnt/data/Projects/sci_lianti/yi293_TTCGAG.PE.bwa.hg38.filt.bam ' \
@@ -204,8 +204,10 @@ def filter_single_reads(args):
     edit_distance_fail = []
     edit_distance_pass = []
 
+    none_context = contextmanager(lambda: iter([None]))()
+
     with pysam.AlignmentFile(args.input, "rb") as input_bam, \
-         (pysam.AlignmentFile(args.output, "wb", template = input_bam) if args.output else nullcontext()) as output_bam:
+         (pysam.AlignmentFile(args.output, "wb", template = input_bam) if args.output else none_context) as output_bam:
 
         for read in input_bam.fetch(until_eof = True):
             valid_edit_distance = has_valid_edit_distance(read, args.edit_min, args.edit_max),
@@ -270,8 +272,10 @@ def filter_paired_reads(args):
     insert_size_fail = []
     insert_size_pass = []
 
+    none_context = contextmanager(lambda: iter([None]))()
+
     with pysam.AlignmentFile(args.input, 'rb') as input_bam, \
-        (pysam.AlignmentFile(args.output, 'wb', template = input_bam) if args.output else nullcontext()) as output_bam:
+        (pysam.AlignmentFile(args.output, 'wb', template = input_bam) if args.output else none_context) as output_bam:
 
         reads = input_bam.fetch(until_eof = True)
         current_read = next(reads)
@@ -320,6 +324,12 @@ def filter_paired_reads(args):
                                                                 args.mapq_max)])
                     if valid_mapq_score:
                         mapq_score_filt += 1
+                # else:
+                #     valid_edit_distance = False
+                #     valid_insert_size = False
+                #     valid_orientation = False
+                #     no_trans_reads = False
+                #     valid_mapq_score = False
 
                 # For MAPQ plotting
                 if all([not read.is_unmapped,

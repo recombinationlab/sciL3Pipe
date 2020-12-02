@@ -1,4 +1,4 @@
-aligner: "bowtie2"
+aligner: "bwa"
 # output directory (include trailing /)
 output_dir: "/mnt/data/sci-l3/test/"
 assembly: "hg38"
@@ -22,6 +22,8 @@ tn5_barcodes: "barcodes/barcode_tn5.txt"
 ligation_barcodes: "barcodes/barcode_ligation_104.txt"
 tn5_mismatches: 1
 ligation_mismatches: 1
+# Reads per single cell to keep
+cutoff: 10000
 ################################################################################   
 # Indexes
 ################################################################################

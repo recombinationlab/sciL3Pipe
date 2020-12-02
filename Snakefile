@@ -78,17 +78,17 @@ ATTACHED = expand([out_dir + "trimmed/{sample}/{sss}.R1.trimmed.attached.fastq.g
                    out_dir + "trimmed/{sample}/{sss}.noME.R1-2.fastq.gz"],
                    sample=ALL_SAMPLES, sss=POST_SSS_SAMPLES)
 
-G_COV = expand(out_dir + f"genome_coverage/{{sample}}/{{sss}}.genome_coverage.txt",
+G_COV = expand(out_dir + f"genome_coverage_{aligner}/{{sample}}/{{sss}}.genome_coverage.txt",
                sample = ALL_SAMPLES, sss = POST_SSS_SAMPLES)
 
-COLLISIONS = expand([out_dir + f"genome_coverage/{{sample}}/{{sss}}.collision.txt",
-                     out_dir + f"genome_coverage/single_cells/{{sample}}/{{sss}}.collision.txt"],
+COLLISIONS = expand([out_dir + f"genome_coverage_{aligner}/{{sample}}/{{sss}}.collision.txt",
+                     out_dir + f"genome_coverage_{aligner}/single_cells/{{sample}}/{{sss}}.collision.txt"],
                      sample= ALL_SAMPLES, sss = POST_SSS_SAMPLES)
 
-SUMMARY = [out_dir + f"genome_coverage/single_cells/single_cell_summary_all.txt"]
+SUMMARY = [out_dir + f"genome_coverage_{aligner}/single_cells/single_cell_summary_all.txt"]
 
 QC = expand([out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.NM.png",
-             out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.NM.png.MAPQ.png"],
+             out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.MAPQ.png"],
              sample = ALL_SAMPLES, sss = POST_SSS_SAMPLES)
 
 ################################################################################
@@ -105,7 +105,7 @@ onstart:
 ################################################################################
 rule all:
     input: 
-        MERGE + TRIM + ATTACHED + G_COV + SUMMARY + COLLISIONS + QC
+        MERGE + TRIM + ATTACHED + G_COV + SUMMARY + COLLISIONS #+ QC
 
 
 ################################################################################
@@ -405,25 +405,31 @@ rule sort_index_markdup_pe:
 
 rule qc_plots:
     '''
+    Need to sort by name before running python script
     Will produce 4 png plots
     '''
     input:
         out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam"
     output:
-        out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.NM.png",
-        out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.NM.png.MAPQ.png"
+        collate=temp(out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.collate.bam"),
+        png1=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.NM.png",
+        png2=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.MAPQ.png"
     conda:
         "envs/sciStrand_env.yaml"
     params:
         hr='--hybrid_reference' if config['hybrid_reference'] else ''
     log:
         out_dir + f"logs/{{sample}}/{{sss}}.qc_plot.log"
+    threads:
+        10
     shell:
         '''
+        samtools collate -@ {threads} -o {output.collate} {input}
+
         python scripts/filter_bam.py \
         --edit_max 0 \
         --edit_min 0 \
-        -i {input} \
+        -i {output.collate} \
         --insert_max 0 \
         --insert_min 0 \
         --mapq_max 255 \
@@ -448,14 +454,18 @@ checkpoint split_bam:
         "envs/sciStrand_env.yaml"
     log:
         out_dir + f"logs/{{sample}}/{{sss}}.split_bam.log"
+    params: 
+        tn5_b=config['tn5_barcodes'],
+        l_b=config['ligation_barcodes'],
+        cutoff=config['cutoff']
     shell:
         '''
         python scripts/split_bam.py \
         -i {input} \
         -o {output} \
-        -tb {barcodes_tn5} \
-        -lb {barcodes_ligation} \
-        --cutoff {cutoff} &> {log}
+        -tb {params.tn5_b} \
+        -lb {params.l_b} \
+        --cutoff {params.cutoff} &> {log}
         '''
 
 
@@ -467,19 +477,20 @@ rule bed_files:
     input:
         out_dir + f"split_bam_{aligner}/{{sample}}/{{sss}}/{{i}}.bam"
     output:
-        bed=out_dir + "bed_files/{sample}/{sss}/{i}.bed",
-        bed_R1=out_dir + "bed_files/{sample}/{sss}/{i}.R1.bed",
-        bed_R1_human=out_dir + "bed_files/{sample}/{sss}/{i}.R1.human.bed",
-        bed_q=out_dir + "bed_files/{sample}/{sss}/{i}.R1.human.Qgt0.bed",
-        bed_q_unq=out_dir + "bed_files/{sample}/{sss}/{i}.R1.human.Qgt0.uniq.bed",
-        uniq1=temp(out_dir + "bed_files/{sample}/{sss}/{i}.R1.human.Qgt0.uniq1.bed"),
-        uniq2=temp(out_dir + "bed_files/{sample}/{sss}/{i}.R1.human.Qgt0.uniq2.bed")
+        idx=out_dir + f"genome_coverage_{aligner}/{{sample}}/{{sss}}/{{i}}.bam.idx",
+        bed=out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.bed",
+        bed_R1=out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.R1.bed",
+        bed_R1_human=out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.R1.human.bed",
+        bed_q=out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.R1.human.Qgt0.bed",
+        bed_q_unq=out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.R1.human.Qgt0.uniq.bed",
+        uniq1=temp(out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.R1.human.Qgt0.uniq1.bed"),
+        uniq2=temp(out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.R1.human.Qgt0.uniq2.bed")
     conda:
         "envs/sciStrand_env.yaml"
     shell:
         '''
         samtools index {input}
-        samtools idxstats {input} > {input}.idx
+        samtools idxstats {input} > {output.idx}
 
         bedtools bamtobed -i {input} > {output.bed}
         # Get read 1
@@ -493,7 +504,7 @@ rule bed_files:
         bedtools intersect -a {output.uniq1} -b {output.uniq2} -f 1 -F 1 > {output.bed_q_unq}
         '''
    
-def split_bam_gcov(wildcards):
+def split_bam_output(wildcards):
     checkpoint_output = checkpoints.split_bam.get(**wildcards).output[0]
     return expand(out_dir + f"split_bam_{aligner}/{{sample}}/{{sss}}/{{i}}.bam",
                sample=wildcards.sample,
@@ -502,20 +513,29 @@ def split_bam_gcov(wildcards):
 
 def bed_gcov(wildcards):
     checkpoint_output = checkpoints.split_bam.get(**wildcards).output[0]
-    return expand(out_dir + "bed_files/{sample}/{sss}/{i}.R1.human.Qgt0.bed",
+    return expand(out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.R1.human.Qgt0.bed",
                sample=wildcards.sample,
                sss=wildcards.sss,
                i=glob_wildcards(os.path.join(checkpoint_output, "{i}.bam")).i)
+
+def split_bam_idx(wildcards):
+    checkpoint_output = checkpoints.split_bam.get(**wildcards).output[0]
+    return expand(out_dir + f"genome_coverage_{aligner}/{{sample}}/{{sss}}/{{i}}.bam.idx",
+           sample=wildcards.sample,
+           sss=wildcards.sss,
+           i=glob_wildcards(os.path.join(checkpoint_output, "{i}.bam")).i)
+
 
 rule genome_coverage:
     '''
     Requires bai and idx created in rule bed_files
     '''
     input:
-        bam=split_bam_gcov,
-        bed_q=bed_gcov
+        bam=split_bam_output,
+        bed_q=bed_gcov,
+        idx=split_bam_idx
     output:
-        out_dir + "genome_coverage/{sample}/{sss}.genome_coverage.txt"
+        out_dir + f"genome_coverage_{aligner}/{{sample}}/{{sss}}.genome_coverage.txt"
     conda:
         "envs/sciStrand_env.yaml"
     shell:
@@ -525,13 +545,11 @@ rule genome_coverage:
             bn=`basename ${{i%.*}}`
             echo $bn >> {output}
             # Get human (without chr) genome coverage
-            awk '{{if ($1 !~ /^chr/) print}}' ${{i}}.idx | awk '{{sum += $3}} END {{print sum}}' >> {output}
-            
-            # move to genome_coverage folder
-            # mv ${{i}}.idx {out_dir}/genome_coverage/
-                        
-            wc -l < {out_dir}bed_files/{wildcards.sample}/{wildcards.sss}/${{bn}}.R1.human.Qgt0.bed >> {output}
-            wc -l < {out_dir}bed_files/{wildcards.sample}/{wildcards.sss}/${{bn}}.R1.human.Qgt0.uniq.bed >> {output}
+            awk '{{if ($1 !~ /^chr/) print}}' {out_dir}genome_coverage_{aligner}/{wildcards.sample}/{wildcards.sss}/${{bn}}.bam.idx \
+            | awk '{{sum += $3}} END {{print sum}}' >> {output}
+                                    
+            wc -l < {out_dir}bed_files_{aligner}/{wildcards.sample}/{wildcards.sss}/${{bn}}.R1.human.Qgt0.bed >> {output}
+            wc -l < {out_dir}bed_files_{aligner}/{wildcards.sample}/{wildcards.sss}/${{bn}}.R1.human.Qgt0.uniq.bed >> {output}
         done
         '''
 
@@ -539,10 +557,10 @@ rule genome_coverage:
 
 rule summary:
     input:
-        expand(out_dir + "genome_coverage/{sample}/{sss}.genome_coverage.txt", 
+        expand(out_dir + f"genome_coverage_{aligner}/{{sample}}/{{sss}}.genome_coverage.txt", 
                sample=ALL_SAMPLES, sss=POST_SSS_SAMPLES)
     output:
-        out_dir + "genome_coverage/single_cells/single_cell_summary_all.txt"
+        out_dir + "genome_coverage_{aligner}/single_cells/single_cell_summary_all.txt"
     conda:
         "envs/sciStrand_env.yaml"
     shell:
@@ -552,34 +570,31 @@ rule summary:
         done
         '''
 
-def split_bam_output(wildcards):
-    checkpoint_output = checkpoints.split_bam.get(**wildcards).output[0]
-    return expand(out_dir + f"split_bam_{aligner}/{{sample}}/{{sss}}/{{i}}.bam",
-           sample=wildcards.sample,
-           sss=wildcards.sss,
-           i=glob_wildcards(os.path.join(checkpoint_output, "{i}.bam")).i)
     
 rule collisions:
     '''
     Requires bai and idx created in rule bed_files
     '''
     input:
-        split_bam_output
+        bam=split_bam_output,
+        idx=split_bam_idx
     output:
-        o1=out_dir + "genome_coverage/{sample}/{sss}.collision.txt",
-        o2=out_dir + "genome_coverage/single_cells/{sample}/{sss}.collision.txt"
+        o1=out_dir + f"genome_coverage_{aligner}/{{sample}}/{{sss}}.collision.txt",
+        o2=out_dir + f"genome_coverage_{aligner}/single_cells/{{sample}}/{{sss}}.collision.txt"
     shell:
         '''
-        for i in {input}; do
+        for i in {input.bam}; do
 
         bn=`basename $i`
         echo ${{bn%.*}} >> {output.o1}
-        awk '{{if ($1 !~ /^chr/) print}}' ${{i}}.idx | awk '{{sum += $3}} END {{print sum}}' >> {output.o1}
-        awk '{{if ($1 ~ /^chr/) print}}' ${{i}}.idx | awk '{{sum += $3}} END {{print sum}}' >> {output.o1}
+        awk '{{if ($1 !~ /^chr/) print}}' {out_dir}genome_coverage_{aligner}/{wildcards.sample}/{wildcards.sss}/${{bn}}.idx \
+        | awk '{{sum += $3}} END {{print sum}}' >> {output.o1}
+        awk '{{if ($1 ~ /^chr/) print}}' {out_dir}genome_coverage_{aligner}/{wildcards.sample}/{wildcards.sss}/${{bn}}.idx \
+        | awk '{{sum += $3}} END {{print sum}}' >> {output.o1}
         
         awk 'NR%3{{printf "%s ",$0;next;}}1' {output.o1} | awk '{{print $1, $2, $3, ($2+$3), $2/($2+$3), $3/($2+$3)}}' > {output.o2}
 
-        cat {output.o2} >> {out_dir}genome_coverage/single_cells/collision.txt
+        cat {output.o2} >> {out_dir}genome_coverage_{aligner}/single_cells/collision.txt
         done
         '''
 
@@ -595,4 +610,3 @@ onsuccess:
     multiqc_out = Path(out_dir + "multiQC/multiqc_report.html")
     if not multiqc_out.exists():
         shell('multiqc {out_dir} -o {out_dir}multiQC')
-    

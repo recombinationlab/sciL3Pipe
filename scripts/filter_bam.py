@@ -98,10 +98,9 @@ def main():
     args = parse_arguments()
 
     # # test args
-    # args = parse_arguments('--edit_max 0 --edit_min 0 --hybrid_reference ' \
-    #                          '-i /mnt/data/Projects/sci_lianti/yi293_TTCGAG.PE.bwa.hg38.collate.bam ' \
-    #                          '--insert_max 1000 --insert_min 0 --mapq_max 255 --mapq_min 0 ' \
-    #                          '-o /mnt/data/Projects/sci_lianti/yi293_TTCGAG.PE.bwa.hg38.filt.bam ' \
+    # args = parse_arguments('--edit_max 100 --edit_min 0 --hybrid_reference ' \
+    #                          '-i /mnt/data/sci-l3/test/alignments/yi292/yi292_CACGTG.PE.bowtie2.hg38.collate.bam ' \
+    #                          '--insert_max 2000 --insert_min 0 --mapq_max 255 --mapq_min 0 ' \
     #                          '--paired'.split())
 
     # mapq = get_mapq_scores(args)
@@ -324,12 +323,7 @@ def filter_paired_reads(args):
                                                                 args.mapq_max)])
                     if valid_mapq_score:
                         mapq_score_filt += 1
-                # else:
-                #     valid_edit_distance = False
-                #     valid_insert_size = False
-                #     valid_orientation = False
-                #     no_trans_reads = False
-                #     valid_mapq_score = False
+
 
                 # For MAPQ plotting
                 if all([not read.is_unmapped,
@@ -472,6 +466,8 @@ def has_same_chromosome(read, mate, hybrid_reference, keep_trans):
                 return True
             else:
                 return False
+        else:
+            return read.tid == mate.tid
     else:
         if keep_trans:
             return True

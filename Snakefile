@@ -87,8 +87,8 @@ COLLISIONS = expand([out_dir + f"genome_coverage_{aligner}/{{sample}}/{{sss}}.co
 
 SUMMARY = [out_dir + f"genome_coverage_{aligner}/single_cells/single_cell_summary_all.txt"]
 
-QC = expand([out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.NM.png",
-             out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.MAPQ.png"],
+QC = expand([out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.collate.bam.NM.png",
+             out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.collate.bam.MAPQ.png"],
              sample = ALL_SAMPLES, sss = POST_SSS_SAMPLES)
 
 ################################################################################
@@ -105,7 +105,7 @@ onstart:
 ################################################################################
 rule all:
     input: 
-        MERGE + TRIM + ATTACHED + G_COV + SUMMARY + COLLISIONS #+ QC
+        MERGE + TRIM + ATTACHED + G_COV + SUMMARY + COLLISIONS + QC
 
 
 ################################################################################
@@ -346,6 +346,7 @@ rule bowtie2_align_pe:
     '''
     MapQ filter 20, -F 4 only mapped reads, -F 256 remove not primary alignment reads
     -F: Do not output alignments with any bits set in INT present in the FLAG field
+    --maxins Bowtie2 by default has max pair insert size of 500
     '''
     input:
         fq_1=out_dir + "trimmed/{sample}/{sss}.R1.trimmed.attached.fastq.gz",
@@ -362,6 +363,7 @@ rule bowtie2_align_pe:
         (bowtie2 \
         -p {threads} \
         -t \
+        --maxins 2000 \
         --phred33 \
         -x {bowtie2_index} \
         -1 {input.fq_1} -2 {input.fq_2} | \
@@ -412,14 +414,14 @@ rule qc_plots:
         out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam"
     output:
         collate=temp(out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.collate.bam"),
-        png1=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.NM.png",
-        png2=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.MAPQ.png"
+        png1=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.collate.bam.NM.png",
+        png2=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.collate.bam.MAPQ.png"
     conda:
         "envs/sciStrand_env.yaml"
     params:
         hr='--hybrid_reference' if config['hybrid_reference'] else ''
     log:
-        out_dir + f"logs/{{sample}}/{{sss}}.qc_plot.log"
+        out_dir + f"logs/{{sample}}/{{sss}}.{aligner}.qc_plot.log"
     threads:
         10
     shell:
@@ -453,7 +455,7 @@ checkpoint split_bam:
     conda:
         "envs/sciStrand_env.yaml"
     log:
-        out_dir + f"logs/{{sample}}/{{sss}}.split_bam.log"
+        out_dir + f"logs/{{sample}}/{{sss}}.{aligner}.split_bam.log"
     params: 
         tn5_b=config['tn5_barcodes'],
         l_b=config['ligation_barcodes'],

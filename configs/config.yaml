@@ -1,4 +1,4 @@
-aligner: "bwa"
+aligner: "bowtie2"
 # output directory (include trailing /)
 output_dir: "/mnt/data/sci-l3/test/"
 assembly: "hg38"
@@ -9,7 +9,7 @@ assembly: "hg38"
 fastqs: "/mnt/data/sci-l3/raw_fastq/samples.json"
 # samples with corresponding SSS barcode file, must match fastqs
 samples: 
-    yi292: "/mnt/data/Projects/sciStrand-seq/barcodes/barcode_sss_lib292.txt"
+    yi292: "barcodes/barcode_sss_lib292.txt"
 sss_mismatches: 0
 rt_mismatches: 3
 rt_primer: GGGATGCAGCTCGCTCCTG

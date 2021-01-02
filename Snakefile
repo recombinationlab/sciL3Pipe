@@ -45,7 +45,10 @@ except:
 ################################################################################
 
 # Fastq files
-FILES = json.load(open(config['fastqs']))
+try:
+    FILES = json.load(open(config['fastqs']))
+except:
+    FILES = None
 
 # Samples should start with a general name e.g. yi292, followed by
 # SSS file containing barcodes
@@ -103,9 +106,14 @@ onstart:
 # Rule all
 ################################################################################
 ################################################################################
-rule all:
-    input: 
-        MERGE + TRIM + ATTACHED + G_COV + SUMMARY + COLLISIONS + QC
+if FILES == None:
+    rule all:
+        input: 
+            G_COV + SUMMARY + COLLISIONS + QC
+else:
+    rule all:
+        input: 
+            MERGE + TRIM + ATTACHED + G_COV + SUMMARY + COLLISIONS + QC
 
 
 ################################################################################

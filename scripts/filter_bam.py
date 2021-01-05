@@ -2,6 +2,8 @@
 import pysam
 import argparse
 import sys
+import matplotlib as mpl
+mpl.use('Agg') # non-interactive backend required for cluster nodes
 import matplotlib.pyplot as plt
 import numpy as np
 # %matplotlib inline
@@ -325,65 +327,65 @@ def filter_paired_reads(args):
                         mapq_score_filt += 1
 
 
-                # For MAPQ plotting
-                if all([not read.is_unmapped,
-                        not current_read.is_unmapped,
-                        valid_edit_distance,
-                        valid_orientation,
-                        no_trans_reads,
-                        valid_insert_size]):
-                    mapq_score_pass.append(min(read.mapping_quality, 
-                                            current_read.mapping_quality))
-                elif all([not read.is_unmapped,
-                          not current_read.is_unmapped]):
-                    mapq_score_fail.append(min(read.mapping_quality, 
-                                            current_read.mapping_quality))
+                    # For MAPQ plotting
+                    if all([not read.is_unmapped,
+                            not current_read.is_unmapped,
+                            valid_edit_distance,
+                            valid_orientation,
+                            no_trans_reads,
+                            valid_insert_size]):
+                        mapq_score_pass.append(min(read.mapping_quality, 
+                                                current_read.mapping_quality))
+                    elif all([not read.is_unmapped,
+                            not current_read.is_unmapped]):
+                        mapq_score_fail.append(min(read.mapping_quality, 
+                                                current_read.mapping_quality))
 
-                # Edit distance plotting
-                if all([not read.is_unmapped,
-                        not current_read.is_unmapped,
-                        valid_mapq_score,
-                        valid_orientation,
-                        no_trans_reads,
-                        valid_insert_size]):
-                    edit_distance_pass.append(max(int(read.get_tag('NM')), 
-                                               int(current_read.get_tag('NM'))))
-                elif all([not read.is_unmapped,
-                          not current_read.is_unmapped]):
-                    edit_distance_fail.append(max(int(read.get_tag('NM')), 
-                                               int(current_read.get_tag('NM'))))
+                    # Edit distance plotting
+                    if all([not read.is_unmapped,
+                            not current_read.is_unmapped,
+                            valid_mapq_score,
+                            valid_orientation,
+                            no_trans_reads,
+                            valid_insert_size]):
+                        edit_distance_pass.append(max(int(read.get_tag('NM')), 
+                                                int(current_read.get_tag('NM'))))
+                    elif all([not read.is_unmapped,
+                            not current_read.is_unmapped]):
+                        edit_distance_fail.append(max(int(read.get_tag('NM')), 
+                                                int(current_read.get_tag('NM'))))
 
-                # Insert size plotting
-                if all([not read.is_unmapped,
-                        not current_read.is_unmapped,
-                        valid_edit_distance,
-                        valid_mapq_score,
-                        valid_orientation,
-                        no_trans_reads]):
-                    insert_size_pass.append(abs(read.template_length))
-                elif all([not read.is_unmapped,
-                          not current_read.is_unmapped]):
-                    insert_size_fail.append(abs(read.template_length))
+                    # Insert size plotting
+                    if all([not read.is_unmapped,
+                            not current_read.is_unmapped,
+                            valid_edit_distance,
+                            valid_mapq_score,
+                            valid_orientation,
+                            no_trans_reads]):
+                        insert_size_pass.append(abs(read.template_length))
+                    elif all([not read.is_unmapped,
+                            not current_read.is_unmapped]):
+                        insert_size_fail.append(abs(read.template_length))
 
 
-                # Filtering and BAM write out
-                if all([not read.is_unmapped,
-                        not current_read.is_unmapped,
-                        valid_edit_distance,
-                        valid_mapq_score,
-                        valid_orientation,
-                        no_trans_reads,
-                        valid_insert_size]):
-                        
-                    valid_reads += 1 
-                    if args.output:
-                        output_bam.write(current_read)
-                        output_bam.write(read)
-                elif all([not read.is_unmapped,
-                          not current_read.is_unmapped]):
-                    unmapped_reads += 1
-                else:
-                    invalid_reads += 1
+                    # Filtering and BAM write out
+                    if all([not read.is_unmapped,
+                            not current_read.is_unmapped,
+                            valid_edit_distance,
+                            valid_mapq_score,
+                            valid_orientation,
+                            no_trans_reads,
+                            valid_insert_size]):
+                            
+                        valid_reads += 1 
+                        if args.output:
+                            output_bam.write(current_read)
+                            output_bam.write(read)
+                    elif all([not read.is_unmapped,
+                            not current_read.is_unmapped]):
+                        unmapped_reads += 1
+                    else:
+                        invalid_reads += 1
 
                 # reset counter
                 try:

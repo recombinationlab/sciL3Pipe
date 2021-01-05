@@ -2,6 +2,8 @@ import subprocess
 import sys
 import pysam
 import gzip
+import matplotlib as mpl
+mpl.use('Agg') # non-interactive backend required for cluster nodes
 import matplotlib.pyplot as plt
 import argparse
 import os

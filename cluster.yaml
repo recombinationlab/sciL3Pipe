@@ -54,4 +54,11 @@ qc_plots:
     nodes: 1
     output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
     error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
+summary:
+    time: "1:00:00"
+    mem: 5g
+    cpus: 1
+    nodes: 1
+    output: "{out_dir}logs/cluster/{rule}.out"
+    error: "{out_dir}logs/cluster/{rule}.err"
  

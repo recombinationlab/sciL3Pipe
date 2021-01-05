@@ -169,17 +169,20 @@ rule merge_fastqs_pe:
 # Split by SSS barcodes
 ################################################################################
 
-checkpoint extract_split_sss:
+rule extract_split_sss:
     input:
         r1 = out_dir + "merged/{sample}.R1.fastq.gz",
         r2 = out_dir + "merged/{sample}.R2.fastq.gz"
     output:
-        temp(directory(out_dir + 'temp_split_SSS/{sample}'))
+        expand([out_dir + 'split_SSS/{{sample}}/{sss}.R1.ordered.fastq',
+                out_dir + 'split_SSS/{{sample}}/{sss}.R2.ordered.fastq'],
+                sss=POST_SSS_SAMPLES)
     conda:
         "envs/sciStrand_env.yaml"
     log:
         out_dir + "logs/{sample}_sss.log"
     params:
+        output_dir=out_dir + 'split_SSS/{sample}/',
         barcodes=lambda wildcards: config['samples'][wildcards.sample],
         sss_m=config['sss_mismatches'],
         rt_m=config['rt_mismatches'],
@@ -189,18 +192,13 @@ checkpoint extract_split_sss:
         python scripts/order_and_split_read_pairs.py \
         -r1 {input.r1} \
         -r2 {input.r2} \
-        -o {output} \
+        -o {params.output_dir} \
         -b {params.barcodes} \
         -sss {params.sss_m} \
         -rt {params.rt_m} \
         -p {params.rt_p} &> {log}
         '''
 
-def sss_split_output(wildcards):
-    checkpoint_output = checkpoints.extract_split_sss.get(**wildcards).output[0]
-    return expand(out_dir + "temp_split_SSS/{sample}/{i}.fastq",
-               sample=wildcards.sample,
-               i=glob_wildcards(os.path.join(checkpoint_output, "{i}.fastq")).i)
 
 rule bgzip_sss_fastq:
     '''
@@ -209,19 +207,18 @@ rule bgzip_sss_fastq:
     number of online processors, or 8 if unknown)
     '''
     input:
-        sss_split_output
-        # out_dir + "temp_split_SSS/{sample}/{i}.fastq"
+        out_dir + 'split_SSS/{sample}/{sss}.R1.ordered.fastq',
+        out_dir + 'split_SSS/{sample}/{sss}.R2.ordered.fastq'
     output:
-        out_dir + "split_SSS/{sample}/{i}.fastq.gz"
+        out_dir + 'split_SSS/{sample}/{sss}.R1.ordered.fastq.gz',
+        out_dir + 'split_SSS/{sample}/{sss}.R2.ordered.fastq.gz'
     conda:
         "envs/sciStrand_env.yaml"
     threads:
         10
     shell: 
         '''
-        pigz {input}
-        rm -r {out_dir}split_SSS
-        mv {out_dir}temp_split_SSS {out_dir}split_SSS
+        pigz -p {threads} {output}
         '''
 
 ################################################################################
@@ -401,9 +398,9 @@ rule sort_index_markdup_pe:
         10
     shell:
         '''
-        samtools fixmate -m {input} {output.fixmate}
+        samtools fixmate -@ {threads} -m {input} {output.fixmate}
 
-        samtools sort -T {wildcards.sample} -@ {threads} -o {output.bam} {output.fixmate}
+        samtools sort -@ {threads} -o {output.bam} {output.fixmate}
         
         samtools markdup -@ {threads} {output.bam} {output.mrkdup}
         samtools index {output.mrkdup}
@@ -576,7 +573,7 @@ rule summary:
     shell:
         '''
         for i in {input}; do
-        awk 'NR%4{{printf "%s ",$0;next;}}1' $i | awk '{{print $1, $2, $3, $4, $3/$4}}' >> {output}
+            awk 'NR%4{{printf "%s ",$0;next;}}1' $i | awk '{{print $1, $2, $3, $4, $3/$4}}' >> {output}
         done
         '''
 
@@ -595,16 +592,16 @@ rule collisions:
         '''
         for i in {input.bam}; do
 
-        bn=`basename $i`
-        echo ${{bn%.*}} >> {output.o1}
-        awk '{{if ($1 !~ /^chr/) print}}' {out_dir}genome_coverage_{aligner}/{wildcards.sample}/{wildcards.sss}/${{bn}}.idx \
-        | awk '{{sum += $3}} END {{print sum}}' >> {output.o1}
-        awk '{{if ($1 ~ /^chr/) print}}' {out_dir}genome_coverage_{aligner}/{wildcards.sample}/{wildcards.sss}/${{bn}}.idx \
-        | awk '{{sum += $3}} END {{print sum}}' >> {output.o1}
-        
-        awk 'NR%3{{printf "%s ",$0;next;}}1' {output.o1} | awk '{{print $1, $2, $3, ($2+$3), $2/($2+$3), $3/($2+$3)}}' > {output.o2}
+            bn=`basename $i`
+            echo ${{bn%.*}} >> {output.o1}
+            awk '{{if ($1 !~ /^chr/) print}}' {out_dir}genome_coverage_{aligner}/{wildcards.sample}/{wildcards.sss}/${{bn}}.idx \
+            | awk '{{sum += $3}} END {{print sum}}' >> {output.o1}
+            awk '{{if ($1 ~ /^chr/) print}}' {out_dir}genome_coverage_{aligner}/{wildcards.sample}/{wildcards.sss}/${{bn}}.idx \
+            | awk '{{sum += $3}} END {{print sum}}' >> {output.o1}
+            
+            awk 'NR%3{{printf "%s ",$0;next;}}1' {output.o1} | awk '{{print $1, $2, $3, ($2+$3), $2/($2+$3), $3/($2+$3)}}' > {output.o2}
 
-        cat {output.o2} >> {out_dir}genome_coverage_{aligner}/single_cells/collision.txt
+            cat {output.o2} >> {out_dir}genome_coverage_{aligner}/single_cells/collision.txt
         done
         '''
 

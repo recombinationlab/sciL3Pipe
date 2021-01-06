@@ -87,7 +87,7 @@ def write_bam(args):
             try:
                 if not args.keep_alt:
                     if all([not bool(re.search('_|\.\d$', read.reference_name)),
-                            not bool(re.search('_|\.\d$', read.next_reference_name))):
+                            not bool(re.search('_|\.\d$', read.next_reference_name))]):
                         # update tid
                         read.reference_id = sbh_tid_pos[read.reference_name]
                         # update mate tid

@@ -29,9 +29,11 @@ def parse_arguments(args=None):
 def main():
 
     args = parse_arguments()
+
     # /mnt/data/Projects/sciStrand-seq/yi293_AGGACG.PE.bwa.hg38.markdup.bam
-    # args = parse_arguments('-i /mnt/data/nextseq190419/yi293_AGGACG_5min_UV_with_USER_HAP1/yi293_AGGACG.GTCAGTAGCGGAGAC.bam ' \
-    #                        '-1 mouse -2 human -f NC_007605,hs37d5,Y'.split())
+    # /mnt/data/nextseq190419/yi293_AGGACG_5min_UV_with_USER_HAP1/yi293_AGGACG.GTCAGTAGCGGAGAC.bam
+    # args = parse_arguments('-i /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1_hg38_bowtie2/yi293_GAACCG/yi293_GAACCG.TTTGACTCTCACAGC.bam ' \
+    #                        '-1 mouse -2 human -f NC_007605,hs37d5,Y -o /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1_hg38_bowtie2/split/'.split())
     os.makedirs(args.output_dir, exist_ok=True)
     write_split_bams(args)
 
@@ -134,7 +136,7 @@ def write_split_bams(args):
             try:
                 if args.filter:
                     ad_filter = any([bool(re.search(search_str, read.reference_name)),
-                                     bool(re.search(search_str, read.next_reference_name))])
+                                    bool(re.search(search_str, read.next_reference_name))])
                     if ad_filter:
                         additional_filt += 1
                 else:
@@ -166,7 +168,7 @@ def write_split_bams(args):
                     written_2 += 1
                 else:
                     not_written += 1
-            except AttributeError:
+            except TypeError:
                 orphan_reads += 1
 
     print('BAM 1 reads written out:', written_1)

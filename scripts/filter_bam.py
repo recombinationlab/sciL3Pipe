@@ -10,7 +10,7 @@ import numpy as np
 from contextlib import contextmanager
 import re 
 
-
+# TODO: Test single-end filtering 
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(description =
@@ -24,17 +24,20 @@ def parse_arguments(args=None):
             "6. Removes reads in orientation other than FR (Paired-end) \n" +
             "The script requires that the reads are name sorted, not coordinate sorted")
 
-    parser.add_argument('-i', '--input', action = 'store', metavar = 'FILE',
-                        help = 'Input BAM file')
+    parser.add_argument('-i', '--input', action = 'store', metavar = 'FILE', 
+                        required=True, help = 'Input BAM file')
     parser.add_argument('-o', '--output', action = 'store', metavar = 'FILE',
-                        help = 'Output BAM file containing reads that pass')
+                        help = 'Output BAM file containing reads that pass. ' +
+                        'If not specified, no output produced (useful for QC plots only)')
+    parser.add_argument('--output_failed', action = 'store', metavar = 'FILE',
+                        help = 'Output BAM file containing reads that failed')
     parser.add_argument('--edit_max', action = 'store', metavar = 'Y',
-                        type = int, default = 4,
+                        type = int, default = 0,
                         help = ('If the edit distance between the read ' +
                                 'sequence and the reference sequence falls ' +
                                 'within [X, Y], keep the read. Otherwise ' +
                                 'remove it. To ignore filter set both min and max ' +
-                                'to 0. Default = 4'))
+                                'to 0. Default = 0q'))
     parser.add_argument('--edit_min', action = 'store', metavar = 'X',
                         type = int, default = 0,
                         help = ('If the edit distance between the read ' +
@@ -62,10 +65,13 @@ def parse_arguments(args=None):
                         help = ('If the MAPQ score of this read falls within ' +
                                 '[M, N], keep the read. Otherwise remove ' +
                                 'it. Default = 255'))
-    parser.add_argument('--sc_max', action = 'store', metavar = 'X',
-                        type = int, default = 300,
-                        help = ('If number of soft clipped bases is greater than ' +
-                                'X, filter out the read. Default = 300'))
+    parser.add_argument('--max_ratio', action = 'store', metavar = 'X',
+                        type = float, default = 0,
+                        help = ('If the ratio of soft clipped bases over matched is ' +
+                                'X, filter out the read. e.g. 50 soft clipped bases to ' +
+                                '150 total matched bases would produce a ratio of 0.5, ' +
+                                'which if X=0.5, the read(s) would be filtered out.' +
+                                'Default = 0'))
     parser.add_argument('--paired', action = 'store_true',
                         help = ('Set if the BAM file contains a paired-end ' +
                                 'alignment. Defaults to single-read alignment.'))
@@ -73,6 +79,8 @@ def parse_arguments(args=None):
                         help = ('Keep paired end reads not in FR or RF orientation'))
     parser.add_argument('--keep_trans', action = 'store_true',
                         help = ('Keep paired end reads not on same chromosome'))
+    parser.add_argument('--no_plot', action = 'store_true',
+                        help = ('Do not produce any plots'))
     parser.add_argument('--hybrid_reference', action = 'store_true',
                         help = ('Specifies if alignment was performed with a hybrid' +
                                 'reference (Ref 1 = 1, 2, 3, etc.; Ref 2 = chr1, chr2, chr3, etc.'))
@@ -107,8 +115,9 @@ def main():
     # # test args
     # args = parse_arguments('--edit_max 100 --edit_min 0 --hybrid_reference ' \
     #                          '-i /mnt/data/sci-l3/test/alignments/yi292/yi292_GTGCAG.PE.bwa.hg38.collate.bam ' \
-    #                          '--insert_max 2000 --insert_min 0 --mapq_max 255 --mapq_min 0 --sc_max 0 ' \
+    #                          '--insert_max 2000 --insert_min 0 --mapq_max 255 --mapq_min 0 --max_ratio 0.5 ' \
     #                          '--paired'.split())
+
 
 
     # mapq = get_mapq_scores(args)
@@ -200,31 +209,83 @@ def plot_mismatches(edit_distance, min_nm, max_nm, save_plt):
     plt.close()
 
 
-def plot_soft_clipped(soft_clipped, max_sc, save_plt):
+def plot_soft_clipped(soft_clipped, save_plt, ratio_filt=False):
     '''
     Plot histogram of soft clipped bases
 
     Args:
-        soft_clipped(list): list of soft clipped bases to plot
+        soft_clipped(np.array): list of soft clipped bases to plot
         max_sc(int): maximum allowed soft clipping
         save_plt(str): output path name to save plot
     '''
-    out_png = save_plt + '.soft_clipping.png'
-    plt.hist(soft_clipped, bins=200, density=False, histtype='bar',
-    stacked=True, label=['Pass', 'Fail'])
+    if ratio_filt:
+        out_png = save_plt + '.soft_clipping_pass.png'
+        plt.hist(soft_clipped, bins=200, density=False, histtype='bar',
+        stacked=True, label=['Pass', 'Fail'])
+        plt.legend(prop={'size': 10})
+    else:
+        out_png = save_plt + '.soft_clipping.png'
+        plt.hist(soft_clipped, bins=200, density=False, histtype='bar',
+        stacked=True, label=['Pass', 'Fail'])
+        plt.legend(prop={'size': 10})
     plt.yscale('log')
-    plt.legend(prop={'size': 10})
     plt.ylabel('Read count')
     plt.xlabel('Soft clipped bases')
-    plt.axvline(x=max_sc, color='r', linestyle='dashed', linewidth=1)
     plt.savefig(out_png, bbox_inches='tight') 
     plt.close()
+
+
+def soft_clipped_vs_matched(sc, m, slope, save_plt):
+    '''
+    Plot heatmap of soft clipped vs matched bases
+
+    Args:
+        sc(np.array): soft clipped 
+        m(np.array): matched
+        slope(double): slope of line on plot
+        save_plt(str): output path name to save plot
+    '''
+    out_png = save_plt + '.soft_clipping_vs_matched.png'
+    heatmap, xedges, yedges = np.histogram2d(m, sc, bins=100)
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+
+    im = plt.imshow(np.log2(heatmap.T+1), extent=extent, origin='lower')
+    plt.ylabel('Soft clipped')
+    plt.xlabel('Matched')
+    xl=plt.xlim()
+    plt.axline((0, 0), slope=slope)
+    plt.xlim(xl[0])
+    plt.colorbar(im)
+    plt.savefig(out_png, bbox_inches='tight') 
+    plt.close()
+
+def matched_vs_matched(m_r1, m_r2, save_plt):
+    '''
+    Plot heatmap of matched read 1 bases vs matched read 2 bases
+
+    Args:
+        m_r1(np.array): matched read 1
+        m_r2(np.array): matched read 2
+        save_plt(str): output path name to save plot
+    '''
+    out_png = save_plt + '.matched_r1_vs_matched_r2.png'
+    heatmap, xedges, yedges = np.histogram2d(m_r2, m_r1, bins=50)
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+
+    im = plt.imshow(np.log2(heatmap.T+1), extent=extent, origin='lower')
+    plt.ylabel('Matched read 1')
+    plt.xlabel('Matched read 2')
+    plt.colorbar(im)
+    plt.savefig(out_png, bbox_inches='tight') 
+    plt.close()
+
 
 
 def filter_single_reads(args):
 
     valid_reads = 0
     invalid_reads = 0
+    unmapped = 0
 
     # pass fail based on other filters
     mapq_score_fail = []
@@ -232,22 +293,27 @@ def filter_single_reads(args):
     edit_distance_fail = []
     edit_distance_pass = []
     soft_clip_fail = []
+    soft_clip_ratio_fail = []
     soft_clip_pass = []
+    soft_clip_ratio_pass = []
+    sc = []
+    m = []
 
     none_context = contextmanager(lambda: iter([None]))()
 
     with pysam.AlignmentFile(args.input, "rb") as input_bam, \
-         (pysam.AlignmentFile(args.output, "wb", template = input_bam) if args.output else none_context) as output_bam:
+         (pysam.AlignmentFile(args.output, "wb", template = input_bam) if args.output else none_context) as output_bam, \
+         (pysam.AlignmentFile(args.output_failed, "wb", template = input_bam) if args.output_failed else none_context) as output_failed_bam:
 
         for read in input_bam.fetch(until_eof = True):
             valid_edit_distance = has_valid_edit_distance(read, args.edit_min, args.edit_max),
             valid_mapq_score = has_valid_mapq_score(read, args.mapq_min, args.mapq_max)
-            valid_soft_clip = has_valid_soft_clipping(args.sc_max, read)
+            valid_ratio = has_valid_soft_clip_matched(args.max_ratio, read)
 
             # For MAPQ plotting
             if all([not read.is_unmapped,
                     valid_edit_distance,
-                    valid_soft_clip]):
+                    valid_ratio]):
                 mapq_score_pass.append(read.mapping_quality)
             elif not read.is_unmapped:
                 mapq_score_fail.append(read.mapping_quality)
@@ -255,42 +321,63 @@ def filter_single_reads(args):
             # Edit distance plotting
             if all([not read.is_unmapped,
                     valid_mapq_score,
-                    valid_soft_clip]):
+                    valid_ratio]):
                 edit_distance_pass.append(int(read.get_tag('NM')))
             elif not read.is_unmapped:
                 edit_distance_fail.append(int(read.get_tag('NM')))
 
-            # Soft clipping plotting
+            # Soft clipping matched plotting
+            sc.append(soft_clipped(read.cigarstring))
+            m.append(matched(read.cigarstring))
+
             if all([not read.is_unmapped,
                     valid_edit_distance,
                     valid_mapq_score]):
-                soft_clip_pass.append(int(soft_clipped(read.cigarstring)))
+                soft_clip_pass.append(soft_clipped(read.cigarstring))
             elif not read.is_unmapped:
-                soft_clip_fail.append(int(soft_clipped(read.cigarstring)))
+                soft_clip_fail.append(soft_clipped(read.cigarstring))
+                
+            if all([not read.is_unmapped,
+                    valid_ratio]):
+                soft_clip_ratio_pass.append(soft_clipped(read.cigarstring))   
+            elif not read.is_unmapped:
+                soft_clip_ratio_fail.append(soft_clipped(read.cigarstring))
 
-
+            
+                    
             if all([not read.is_unmapped,
                     valid_edit_distance,
                     valid_mapq_score,
-                    valid_soft_clip]):
+                    valid_ratio]):
 
                 valid_reads += 1
                 if args.output:
                     output_bam.write(read)
+            elif read.is_unmapped:
+                unmapped += 1
             else:
                 invalid_reads += 1
+                if args.output_failed:
+                    output_failed_bam.write(read)
 
     print("Valid reads written out:", valid_reads)
     print("Invalid reads filtered:", invalid_reads)
+    print("Unmapped reads:", unmapped)
 
-    plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
-              args.mapq_min, args.mapq_max, args.input)
+    if not args.no_plot:
+        plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
+                args.mapq_min, args.mapq_max, args.input)
 
-    plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
-                    args.edit_min, args.edit_max, args.input)
+        plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
+                        args.edit_min, args.edit_max, args.input)
 
-    plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object),
-                      args.sc_max, args.input)
+        plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object),
+                          args.input)
+
+        plot_soft_clipped(np.array([soft_clip_pass, soft_clip_ratio_fail], dtype=object),
+                          args.input, ratio_filt=True)
+
+        soft_clipped_vs_matched(sc, m, args.max_ratio, args.input)
 
 
 def filter_paired_reads(args):
@@ -303,7 +390,7 @@ def filter_paired_reads(args):
         If a read needs to be processed with its mate, work from a 
         read name sorted file or, better, cache reads.
     '''
-   
+
     EOF = False
     valid_reads = 0
     invalid_reads = 0
@@ -324,12 +411,18 @@ def filter_paired_reads(args):
     insert_size_fail = []
     insert_size_pass = []
     soft_clip_fail = []
+    soft_clip_ratio_fail = []
     soft_clip_pass = []
+    soft_clip_ratio_pass = []
+    sc = []
+    m_r1 = []
+    m_r2 = []
 
     none_context = contextmanager(lambda: iter([None]))()
 
     with pysam.AlignmentFile(args.input, 'rb') as input_bam, \
-        (pysam.AlignmentFile(args.output, 'wb', template = input_bam) if args.output else none_context) as output_bam:
+        (pysam.AlignmentFile(args.output, 'wb', template = input_bam) if args.output else none_context) as output_bam, \
+        (pysam.AlignmentFile(args.output_failed, 'wb', template = input_bam) if args.output_failed else none_context) as output_failed_bam:
 
         reads = input_bam.fetch(until_eof = True)
         current_read = next(reads)
@@ -379,10 +472,10 @@ def filter_paired_reads(args):
                     if valid_mapq_score:
                         mapq_score_filt += 1
 
-                    valid_soft_clip = has_valid_soft_clipping(args.sc_max, 
-                                                              current_read,
-                                                              read)
-                    if valid_soft_clip:
+                    valid_ratio = has_valid_soft_clip_matched(args.max_ratio, 
+                                                                current_read,
+                                                                read)
+                    if valid_ratio:
                         soft_clip_filt += 1
 
                     # For MAPQ plotting
@@ -392,7 +485,7 @@ def filter_paired_reads(args):
                             valid_orientation,
                             no_trans_reads,
                             valid_insert_size,
-                            valid_soft_clip]):
+                            valid_ratio]):
                         mapq_score_pass.append(min(read.mapping_quality, 
                                                 current_read.mapping_quality))
                     elif all([not read.is_unmapped,
@@ -407,7 +500,7 @@ def filter_paired_reads(args):
                             valid_orientation,
                             no_trans_reads,
                             valid_insert_size,
-                            valid_soft_clip]):
+                            valid_ratio]):
                         edit_distance_pass.append(max(int(read.get_tag('NM')), 
                                                 int(current_read.get_tag('NM'))))
                     elif all([not read.is_unmapped,
@@ -422,13 +515,17 @@ def filter_paired_reads(args):
                             valid_mapq_score,
                             valid_orientation,
                             no_trans_reads,
-                            valid_soft_clip]):
+                            valid_ratio]):
                         insert_size_pass.append(abs(read.template_length))
                     elif all([not read.is_unmapped,
-                              not current_read.is_unmapped]):
+                                not current_read.is_unmapped]):
                         insert_size_fail.append(abs(read.template_length))
 
-                    # Soft clipping plotting
+                    # Soft clipping vs matched plotting
+                    sc.append(soft_clipped(current_read.cigarstring) + soft_clipped(read.cigarstring))
+                    m_r1.append(matched(current_read.cigarstring))
+                    m_r2.append(matched(read.cigarstring))
+
                     if all([not read.is_unmapped,
                             not current_read.is_unmapped,
                             valid_edit_distance,
@@ -436,12 +533,22 @@ def filter_paired_reads(args):
                             valid_orientation,
                             no_trans_reads,
                             valid_insert_size]):
-                        soft_clip_pass.append(int(soft_clipped(read.cigarstring))+
-                                              int(soft_clipped(current_read.cigarstring)))
+                        soft_clip_pass.append(soft_clipped(read.cigarstring)+
+                                                soft_clipped(current_read.cigarstring))
                     elif all([not read.is_unmapped,
-                              not current_read.is_unmapped]):
-                        soft_clip_fail.append(int(soft_clipped(read.cigarstring))+
-                                              int(soft_clipped(current_read.cigarstring)))
+                                not current_read.is_unmapped]):
+                        soft_clip_fail.append(soft_clipped(read.cigarstring)+
+                                                soft_clipped(current_read.cigarstring))
+
+                    if all([not read.is_unmapped,
+                            not current_read.is_unmapped,
+                            valid_ratio]):
+                        soft_clip_ratio_pass.append(soft_clipped(read.cigarstring)+
+                                                soft_clipped(current_read.cigarstring))
+                    elif all([not read.is_unmapped,
+                                not current_read.is_unmapped]):
+                            soft_clip_ratio_fail.append(soft_clipped(read.cigarstring)+
+                                                        soft_clipped(current_read.cigarstring))
 
                     # Filtering and BAM write out
                     if all([not read.is_unmapped,
@@ -451,17 +558,20 @@ def filter_paired_reads(args):
                             valid_orientation,
                             no_trans_reads,
                             valid_insert_size,
-                            valid_soft_clip]):
-                            
+                            valid_ratio]):
+                        
                         valid_reads += 1 
                         if args.output:
                             output_bam.write(current_read)
                             output_bam.write(read)
-                    elif all([not read.is_unmapped,
-                            not current_read.is_unmapped]):
+                    elif any([read.is_unmapped,
+                             current_read.is_unmapped]):
                         unmapped_reads += 1
                     else:
                         invalid_reads += 1
+                        if args.output_failed:
+                            output_failed_bam.write(current_read)
+                            output_failed_bam.write(read)
 
                 # reset counter
                 try:
@@ -492,23 +602,30 @@ def filter_paired_reads(args):
     print("Valid insert size read pairs:", insert_size_filt)
     print("Valid edit distance read pairs:", edit_distance_filt)
     print("Valid mapq score read pairs:", mapq_score_filt)
-    print("Valid soft clipping read pairs:", soft_clip_filt)
+    print("Valid soft clipping/matched ratio read pairs:", soft_clip_filt)
 
-    plot_insert_size(np.array([insert_size_pass,insert_size_fail], dtype=object), 
-                     args.insert_min, args.insert_max, args.input)
+    if not args.no_plot:
+        plot_insert_size(np.array([insert_size_pass,insert_size_fail], dtype=object), 
+                        args.insert_min, args.insert_max, args.input)
 
-    plot_insert_size(insert_size_pass, 
-                     args.insert_min, args.insert_max, args.input)
+        plot_insert_size(insert_size_pass, 
+                        args.insert_min, args.insert_max, args.input)
 
-    plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
-              args.mapq_min, args.mapq_max, args.input)
+        plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
+                args.mapq_min, args.mapq_max, args.input)
 
-    plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
-                    args.edit_min, args.edit_max, args.input)
+        plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
+                        args.edit_min, args.edit_max, args.input)
 
-    plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object),
-                      args.sc_max, args.input)
+        plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object),
+                        args.input)
 
+        plot_soft_clipped(np.array([soft_clip_ratio_pass, soft_clip_ratio_fail], dtype=object), 
+                        args.input, ratio_filt=True)
+
+        soft_clipped_vs_matched(sc, np.array(m_r1) + np.array(m_r2), args.max_ratio, args.input)
+
+        matched_vs_matched(m_r1, m_r2, args.input)
 
 
 def has_valid_edit_distance(read, min, max):
@@ -587,6 +704,19 @@ def soft_clipped(cigar):
         total_sc = 0
     return total_sc
 
+def matched(cigar):
+    '''
+    Extract number of aligned bases from cigar
+    '''
+    m = re.findall("\d+M", cigar)
+    if len(m) > 0:
+        total_m = 0
+        for i in m:
+            total_m += int(i[:-1])
+    else:
+        total_m = 0
+    return total_m
+
 
 def has_valid_soft_clipping(max_sc, read, mate=None):
     '''
@@ -599,6 +729,21 @@ def has_valid_soft_clipping(max_sc, read, mate=None):
         scm = int(soft_clipped(mate.cigarstring))
 
         return scr+scm <= max_sc
+
+def has_valid_soft_clip_matched(ratio, read, mate=None):
+    '''
+    Filter reads with a higher ratio of soft-clipped/matched
+    '''
+    if mate == None:
+        sc = soft_clipped(read.cigarstring)
+        m = matched(read.cigarstring)
+    else:
+        sc = soft_clipped(read.cigarstring) + soft_clipped(mate.cigarstring)
+        m = matched(read.cigarstring) + matched(mate.cigarstring)
+
+    r = float(sc)/float(m)
+
+    return r < ratio
 
 
 
@@ -620,6 +765,9 @@ def get_soft_clipped(args):
     unmapped_pairs = 0
     singletons = 0
     sc = []
+    m = []
+    m1 = []
+    m2 = []
 
     with pysam.AlignmentFile(args.input, 'rb') as input_bam:
         reads = input_bam.fetch(until_eof = True)
@@ -636,6 +784,11 @@ def get_soft_clipped(args):
                 
                     # sum soft clipped bases of both pairs
                     sc.append(soft_clipped(current_read.cigarstring) +  soft_clipped(read.cigarstring))
+                    m1_value = matched(current_read.cigarstring)
+                    m2_value = matched(read.cigarstring)
+                    m.append(m1_value + m2_value)
+                    m1.append(m1_value)
+                    m2.append(m2_value)
                 else:
                     unmapped_pairs += 1
 
@@ -653,8 +806,10 @@ def get_soft_clipped(args):
     print(f'Unmapped pairs: {unmapped_pairs}')
     print(f'Singletons: {singletons}')
 
-    return sc
+    return [sc,m,m1,m2]
     
+
+
 
 def get_mapq_scores(args):
     '''

@@ -715,7 +715,8 @@ def filter_paired_reads(args):
     # sort and clean up tmp files 
     if not bam_sorted or args.sort:
         # sort final output BAM
-        coordinate_sort(bam_filt, args.output, args.threads)
+        if args.output:
+            coordinate_sort(bam_filt, args.output, args.threads)
         # delete temp folder
         shutil.rmtree(tmp_dir)
 

@@ -9,8 +9,12 @@ import numpy as np
 # %matplotlib inline
 from contextlib import contextmanager
 import re 
+import tempfile
+import os
+import shutil
 
 # TODO: Test single-end filtering 
+
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(description =
@@ -72,9 +76,17 @@ def parse_arguments(args=None):
                                 '150 total matched bases would produce a ratio of 0.5, ' +
                                 'which if X=0.5, the read(s) would be filtered out.' +
                                 'Default = 0'))
+    parser.add_argument('--threads', action = 'store', metavar = 'X',
+                        type = int, default = 1,
+                        help = ('Number of threads to use if supplied file is not name ' +
+                                'sorted. Default = 1'))
     parser.add_argument('--paired', action = 'store_true',
                         help = ('Set if the BAM file contains a paired-end ' +
                                 'alignment. Defaults to single-read alignment.'))
+    parser.add_argument('--sort', action = 'store_true',
+                        help = ('Coordinate sort the final BAM output. If input was ' +
+                        'coordinate sorted, final output will automatically be coordinate ' +
+                        'sorted without setting this flag'))
     parser.add_argument('--ignore_orientation', action = 'store_true',
                         help = ('Keep paired end reads not in FR or RF orientation'))
     parser.add_argument('--keep_trans', action = 'store_true',
@@ -114,15 +126,23 @@ def main():
 
     # # test args
     # args = parse_arguments('--edit_max 100 --edit_min 0 --hybrid_reference ' \
-    #                          '-i /mnt/data/sci-l3/test/alignments/yi292/yi292_GTGCAG.PE.bwa.hg38.collate.bam ' \
-    #                          '--insert_max 2000 --insert_min 0 --mapq_max 255 --mapq_min 0 --max_ratio 0.5 ' \
+    #                          '-i /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1/split/subset/yi293_GAACCG.CTTTCTCTCGACTTG.human.bam ' \
+    #                          '--threads 4 ' \
+    #                          '-o /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1/split/subset/filtered_0.5/test.bam ' \
+    #                          '--max_ratio 0.5 ' \
     #                          '--paired'.split())
 
+    #                          -insert_max 2000 --insert_min 0 --mapq_max 255 --mapq_min 0
 
+    # /mnt/data/sci-l3/test/alignments/yi292/yi292_GTGCAG.PE.bwa.hg38.collate.bam
+    # /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1/split/subset/filtered_0.5/yi293_GAACCG.CATTGTGTCGGAGAC.human.sc.bam
 
     # mapq = get_mapq_scores(args)
     # ed = get_edit_distance(args)
     # insert_size = get_insert_size(args)
+
+    if args.output:
+        os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
     if args.paired:
         filter_paired_reads(args)
@@ -130,18 +150,68 @@ def main():
         filter_single_reads(args)
 
 
-def plot_insert_size(insert_size, is_min, is_max, save_plt):
+
+def valid_bam_sort(bam_input):
+    '''
+    Check BAM file is collate or name sorted, required for filtering
+
+    Args:
+        bam_input(str): BAM input path
+
+    return(boolean): True if name sorted, False if unsorted or coordinate sorted
+    '''
+    with pysam.AlignmentFile(bam_input, 'rb') as input_file:
+        sort_status = input_file.header['HD']
+        if sort_status['SO'] == 'coordinate':
+            print('BAM coordinate sorted, will collate before filtering.')
+            return False
+        if sort_status['SO'] == 'unsorted':
+            try:
+                # collate
+                if sort_status['GO'] == 'query':
+                    return True
+            except KeyError:
+                print('BAM not sorted, will collate before filtering.')
+                return False
+
+
+def collate_bam(bam_input, bam_output, threads):
+    '''
+    Group reads pairs together
+
+    Args:
+        bam_input(str): BAM input path
+        bam_output(str): collated BAM output path
+        threads(int): number of threads to use
+    '''
+    pysam.collate('-@', str(threads), '-o', bam_output, bam_input)
+
+def coordinate_sort(bam_input, bam_output, threads):
+    '''
+    Coordinate sort BAM file
+    
+    Args:
+        bam_input(str): BAM input path
+        bam_output(str): collated BAM output path
+        threads(int): number of threads to use
+    '''
+    pysam.sort('-@', str(threads), '-o', bam_output, bam_input)
+
+def plot_insert_size(insert_size, is_min, is_max, save_plt, max_pass=2000):
     '''
     Plot stacked bar plot with insert size with other filters overlaid
 
     Args:
         insert_size(np.array): numpy array of values to plot
+        is_min(int): minumin insert size
+        is_max(int): max insert size
         save_plt(str): output path name to save plot
+        max_pass(int): for pass plots, maximum x-axis value
     '''
 
     if type(insert_size) == list:
         out_png = save_plt + '.insert_size_pass.png'
-        plt.hist(insert_size, bins=100, density=False, histtype='bar')
+        plt.hist(insert_size, bins=100, density=False, histtype='bar', range=(0,max_pass))
     else:
         out_png = save_plt + '.insert_size.png'
         plt.hist(insert_size, bins=100, density=False, histtype='bar', stacked=True, 
@@ -171,9 +241,10 @@ def plot_mapq(mapq_scores, min_mapq, max_mapq, save_plt):
     '''
     out_png = save_plt + '.MAPQ.png'
 
-    plt.hist(mapq_scores, bins=max(max(mapq_scores[0]), max(mapq_scores[1])), 
-    density=False, histtype='bar', 
-    stacked=True, label=['Pass', 'Fail'])
+    plt.hist(mapq_scores, 
+             bins=max(max(mapq_scores[0], default=0), max(mapq_scores[1], default=0)), 
+             density=False, histtype='bar', 
+             stacked=True, label=['Pass', 'Fail'])
     plt.legend(prop={'size': 10})
     plt.ylabel('Read count')
     plt.xlabel('MapQ score')
@@ -279,9 +350,18 @@ def matched_vs_matched(m_r1, m_r2, save_plt):
     plt.savefig(out_png, bbox_inches='tight') 
     plt.close()
 
-
+def none_context(a=None):
+    '''
+    contextmanager can only be used once, so need to define it for multiple uses
+    '''
+    return contextmanager(lambda: (x for x in [a]))()
 
 def filter_single_reads(args):
+
+    if args.sort:
+        tmp_dir = tempfile.mkdtemp()
+        bam_input = args.input
+        bam_filt = os.path.join(tmp_dir, 'filtered.bam')
 
     valid_reads = 0
     invalid_reads = 0
@@ -299,11 +379,10 @@ def filter_single_reads(args):
     sc = []
     m = []
 
-    none_context = contextmanager(lambda: iter([None]))()
 
     with pysam.AlignmentFile(args.input, "rb") as input_bam, \
-         (pysam.AlignmentFile(args.output, "wb", template = input_bam) if args.output else none_context) as output_bam, \
-         (pysam.AlignmentFile(args.output_failed, "wb", template = input_bam) if args.output_failed else none_context) as output_failed_bam:
+         (pysam.AlignmentFile(args.output, "wb", template = input_bam) if args.output else none_context()) as output_bam, \
+         (pysam.AlignmentFile(args.output_failed, "wb", template = input_bam) if args.output_failed else none_context()) as output_failed_bam:
 
         for read in input_bam.fetch(until_eof = True):
             valid_edit_distance = has_valid_edit_distance(read, args.edit_min, args.edit_max),
@@ -364,20 +443,33 @@ def filter_single_reads(args):
     print("Invalid reads filtered:", invalid_reads)
     print("Unmapped reads:", unmapped)
 
+    # sort and clean up tmp files 
+    if args.sort:
+        # sort final output BAM
+        coordinate_sort(bam_filt, args.output, args.threads)
+        # delete temp folder
+        shutil.rmtree(tmp_dir)
+
     if not args.no_plot:
+
+        if args.output is None:
+            png_out = args.input
+        else:
+            png_out = args.output
+
         plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
-                args.mapq_min, args.mapq_max, args.input)
+                args.mapq_min, args.mapq_max, png_out)
 
         plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
-                        args.edit_min, args.edit_max, args.input)
+                        args.edit_min, args.edit_max, png_out)
 
         plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object),
-                          args.input)
+                          png_out)
 
         plot_soft_clipped(np.array([soft_clip_pass, soft_clip_ratio_fail], dtype=object),
-                          args.input, ratio_filt=True)
+                          png_out, ratio_filt=True)
 
-        soft_clipped_vs_matched(sc, m, args.max_ratio, args.input)
+        soft_clipped_vs_matched(sc, m, args.max_ratio, png_out)
 
 
 def filter_paired_reads(args):
@@ -390,6 +482,23 @@ def filter_paired_reads(args):
         If a read needs to be processed with its mate, work from a 
         read name sorted file or, better, cache reads.
     '''
+
+    # check if BAM is collate or name sorted
+    bam_sorted = valid_bam_sort(args.input)
+    if not bam_sorted:
+        # create temp dir for collate file
+        tmp_dir = tempfile.mkdtemp()
+        bam_input = os.path.join(tmp_dir, 'collated.bam')
+        bam_filt = os.path.join(tmp_dir, 'filtered.bam')
+        collate_bam(args.input, bam_input, args.threads)
+    elif args.sort:
+        tmp_dir = tempfile.mkdtemp()
+        bam_input = args.input
+        bam_filt = os.path.join(tmp_dir, 'filtered.bam')
+    else:
+        bam_input = args.input
+        bam_filt = args.output
+
 
     EOF = False
     valid_reads = 0
@@ -418,11 +527,10 @@ def filter_paired_reads(args):
     m_r1 = []
     m_r2 = []
 
-    none_context = contextmanager(lambda: iter([None]))()
 
-    with pysam.AlignmentFile(args.input, 'rb') as input_bam, \
-        (pysam.AlignmentFile(args.output, 'wb', template = input_bam) if args.output else none_context) as output_bam, \
-        (pysam.AlignmentFile(args.output_failed, 'wb', template = input_bam) if args.output_failed else none_context) as output_failed_bam:
+    with pysam.AlignmentFile(bam_input, 'rb') as input_bam, \
+        (pysam.AlignmentFile(bam_filt, 'wb', template = input_bam) if args.output else none_context()) as output_bam, \
+        (pysam.AlignmentFile(args.output_failed, 'wb', template = input_bam) if args.output_failed else none_context()) as output_failed_bam:
 
         reads = input_bam.fetch(until_eof = True)
         current_read = next(reads)
@@ -565,7 +673,7 @@ def filter_paired_reads(args):
                             output_bam.write(current_read)
                             output_bam.write(read)
                     elif any([read.is_unmapped,
-                             current_read.is_unmapped]):
+                                current_read.is_unmapped]):
                         unmapped_reads += 1
                     else:
                         invalid_reads += 1
@@ -604,28 +712,41 @@ def filter_paired_reads(args):
     print("Valid mapq score read pairs:", mapq_score_filt)
     print("Valid soft clipping/matched ratio read pairs:", soft_clip_filt)
 
+    # sort and clean up tmp files 
+    if not bam_sorted or args.sort:
+        # sort final output BAM
+        coordinate_sort(bam_filt, args.output, args.threads)
+        # delete temp folder
+        shutil.rmtree(tmp_dir)
+
+
     if not args.no_plot:
+        if args.output is None:
+            png_out = args.input
+        else:
+            png_out = args.output
+
         plot_insert_size(np.array([insert_size_pass,insert_size_fail], dtype=object), 
-                        args.insert_min, args.insert_max, args.input)
+                        args.insert_min, args.insert_max, png_out)
 
         plot_insert_size(insert_size_pass, 
-                        args.insert_min, args.insert_max, args.input)
+                        args.insert_min, args.insert_max, png_out, max_pass=args.insert_max)
 
         plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
-                args.mapq_min, args.mapq_max, args.input)
+                args.mapq_min, args.mapq_max, png_out)
 
         plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
-                        args.edit_min, args.edit_max, args.input)
+                        args.edit_min, args.edit_max, png_out)
 
         plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object),
-                        args.input)
+                        png_out)
 
         plot_soft_clipped(np.array([soft_clip_ratio_pass, soft_clip_ratio_fail], dtype=object), 
-                        args.input, ratio_filt=True)
+                        png_out, ratio_filt=True)
 
-        soft_clipped_vs_matched(sc, np.array(m_r1) + np.array(m_r2), args.max_ratio, args.input)
+        soft_clipped_vs_matched(sc, np.array(m_r1) + np.array(m_r2), args.max_ratio, png_out)
 
-        matched_vs_matched(m_r1, m_r2, args.input)
+        matched_vs_matched(m_r1, m_r2, png_out)
 
 
 def has_valid_edit_distance(read, min, max):
@@ -638,15 +759,15 @@ def has_valid_edit_distance(read, min, max):
     else:
         return min <= score <= max
 
-def has_valid_insert_size(read, min, max):
+def has_valid_insert_size(read, in_min, in_max):
     '''
     Can be specified while running bowtie2
     If min and max are equal (e.g. 0,0) skip this filter
     '''
-    if min == max:
+    if in_min == in_max:
         return True
     else:
-        return min <= abs(read.template_length) <= max
+        return in_min <= abs(read.template_length) <= in_max
 
 def has_same_chromosome(read, mate, hybrid_reference, keep_trans):
     '''

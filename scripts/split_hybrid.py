@@ -20,6 +20,9 @@ def parse_arguments(args=None):
     parser.add_argument('-f', '--filter', action = 'store', metavar = 'STR',
                         help = 'Additional chromosomes to exclude, if more than one add' +
                                'in a comma separated list')
+    parser.add_argument('--dominant', action = 'store_true',
+                        help = ('Output only the BAM with the most number of reads ' +
+                        'and at least 10000 reads.'))
         
     args = parser.parse_args(args)
 
@@ -33,8 +36,8 @@ def main():
     # /mnt/data/Projects/sciStrand-seq/yi293_AGGACG.PE.bwa.hg38.markdup.bam
     # /mnt/data/nextseq190419/yi293_AGGACG_5min_UV_with_USER_HAP1/yi293_AGGACG.GTCAGTAGCGGAGAC.bam
     # args = parse_arguments('-i /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1_hg38_bowtie2/yi293_GAACCG/yi293_GAACCG.TTTGACTCTCACAGC.bam ' \
-    #                        '-1 mouse -2 human -f NC_007605,hs37d5,Y -o /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1_hg38_bowtie2/split/'.split())
-    os.makedirs(args.output_dir, exist_ok=True)
+    #                        '-1 mouse -2 human -f NC_007605,hs37d5,Y --dominant -o /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1_hg38_bowtie2/split/'.split())
+    
     write_split_bams(args)
 
 
@@ -114,10 +117,16 @@ def write_split_bams(args):
     for i, item in enumerate(bh_2['SQ']):
         bh_2_tid_pos[item['SN']] = i
 
+    # output file names
     b1 = '.'.join([os.path.splitext(os.path.basename(args.input))[0], args.chr_prefix, 'bam'])
     b2 = '.'.join([os.path.splitext(os.path.basename(args.input))[0], args.prefix, 'bam'])
-    b1 = os.path.join(args.output_dir, b1)
-    b2 = os.path.join(args.output_dir, b2)
+    b1 = os.path.join(args.output_dir, args.chr_prefix, b1)
+    b2 = os.path.join(args.output_dir, args.prefix, b2)
+
+    # create dir if they don't exist
+    os.makedirs(os.path.dirname(b1), exist_ok=True)
+    os.makedirs(os.path.dirname(b2), exist_ok=True)
+
 
     # Additional filter
     if args.filter:
@@ -171,13 +180,23 @@ def write_split_bams(args):
             except TypeError:
                 orphan_reads += 1
 
-    print('BAM 1 reads written out:', written_1)
-    print('BAM 2 reads written out:', written_2)
-    print('Reads not written out:', not_written)
+    print('BAM 1 reads:', written_1)
+    print('BAM 2 reads:', written_2)
+    print('Reads filtered:', not_written)
     if orphan_reads > 0:
         print('Orphan reads skipped:', orphan_reads)
     if args.filter:
-        print('Additional filter reads:', additional_filt)
+        print('Set filter removed reads:', additional_filt)
+
+    if args.dominant:
+        total_out = written_1 + written_2
+        if written_1/total_out <= 0.3 or written_1 < 10000:
+            print('BAM 1 has fewer than 30% of total reads or less than 10000 reads and will be deleted.')
+            os.remove(b1)
+        if written_2/total_out <= 0.3 or written_2 < 10000:
+            print('BAM 2 has fewer than 30% of total reads or less than 10000 reads and will be deleted.')
+            os.remove(b2)
+
 
 if __name__ == '__main__':
     main()

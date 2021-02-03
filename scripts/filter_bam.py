@@ -12,8 +12,12 @@ import re
 import tempfile
 import os
 import shutil
+import io
+import base64
+
 
 # TODO: Test single-end filtering 
+# TODO: add plot to show how much from each read end was softclipped/not aligned
 
 def parse_arguments(args=None):
 
@@ -124,14 +128,14 @@ def parse_arguments(args=None):
 def main():
     args = parse_arguments()
 
-    # # test args
+    # test args
     # args = parse_arguments('--edit_max 100 --edit_min 0 --hybrid_reference ' \
     #                          '-i /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1/split/subset/yi293_GAACCG.CTTTCTCTCGACTTG.human.bam ' \
     #                          '--threads 4 ' \
-    #                          '-o /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1/split/subset/filtered_0.5/test.bam ' \
     #                          '--max_ratio 0.5 ' \
     #                          '--paired'.split())
 
+    # '-o /mnt/data/nextseq190419/yi293_GAACCG_1min_UV_with_USER_HAP1/split/subset/filtered_0.5/test.bam ' \
     #                          -insert_max 2000 --insert_min 0 --mapq_max 255 --mapq_min 0
 
     # /mnt/data/sci-l3/test/alignments/yi292/yi292_GTGCAG.PE.bwa.hg38.collate.bam
@@ -197,7 +201,34 @@ def coordinate_sort(bam_input, bam_output, threads):
     '''
     pysam.sort('-@', str(threads), '-o', bam_output, bam_input)
 
-def plot_insert_size(insert_size, is_min, is_max, save_plt, max_pass=2000):
+
+def fig_to_base64(fig):
+    '''
+    Convert matplotlib plot to base64 for html output
+    '''
+    img = io.BytesIO()
+    fig.savefig(img, format='png',
+                bbox_inches='tight')
+    img.seek(0)
+
+    return base64.b64encode(img.getvalue())
+
+
+def write_html_report(out_path, image_list):
+    '''
+    Args:
+        out_path(str): output html path
+        image_list(list): List of base64 encoded images to save in report
+    '''
+    html = ''
+    for img in image_list:
+        img_dec = img.decode('utf-8')
+        html += f'<img src="data:image/png;base64, {img_dec}">\n'
+    with open(out_path, 'w') as html_out:
+        html_out.write(html)
+
+
+def plot_insert_size(insert_size, is_min, is_max, max_pass=2000):
     '''
     Plot stacked bar plot with insert size with other filters overlaid
 
@@ -205,18 +236,19 @@ def plot_insert_size(insert_size, is_min, is_max, save_plt, max_pass=2000):
         insert_size(np.array): numpy array of values to plot
         is_min(int): minumin insert size
         is_max(int): max insert size
-        save_plt(str): output path name to save plot
         max_pass(int): for pass plots, maximum x-axis value
     '''
 
     if type(insert_size) == list:
-        out_png = save_plt + '.insert_size_pass.png'
+        # out_png = save_plt + '.insert_size_pass.png'
         plt.hist(insert_size, bins=100, density=False, histtype='bar', range=(0,max_pass))
+        plt.title('Insert size filter pass')
     else:
-        out_png = save_plt + '.insert_size.png'
+        # out_png = save_plt + '.insert_size.png'
         plt.hist(insert_size, bins=100, density=False, histtype='bar', stacked=True, 
                     label=['Pass', 'Fail'])
         plt.legend(prop={'size': 10})
+        plt.title('Insert size')
     plt.ylabel('Read count')
     plt.xlabel('Insert size')
     # if both min and max == 0, insert filter ignored
@@ -225,10 +257,16 @@ def plot_insert_size(insert_size, is_min, is_max, save_plt, max_pass=2000):
     if is_max > 0:
         plt.axvline(x=is_max, color='r', linestyle='dashed', linewidth=1)
     plt.yscale('log')
-    plt.savefig(out_png, bbox_inches='tight')
+
+    out = fig_to_base64(plt)
     plt.close()
 
-def plot_mapq(mapq_scores, min_mapq, max_mapq, save_plt):
+    return out
+
+    # plt.savefig(out_png, bbox_inches='tight')
+    # plt.close()
+
+def plot_mapq(mapq_scores, min_mapq, max_mapq):
     '''
     Plot counts histogram of BAM MapQ scores
     with reads that would be filtered out based on other criteria 
@@ -237,9 +275,8 @@ def plot_mapq(mapq_scores, min_mapq, max_mapq, save_plt):
         mapq_scores(list): list of MapQ scores to plot
         min_mapq(int): Cutoff for minimum allowed MapQ score
         max_mapq(int): Cutoff for Maximum allowed MapQ score
-        save_plt(str): output path name to save plot
     '''
-    out_png = save_plt + '.MAPQ.png'
+
 
     plt.hist(mapq_scores, 
              bins=max(max(mapq_scores[0], default=0), max(mapq_scores[1], default=0)), 
@@ -251,10 +288,17 @@ def plot_mapq(mapq_scores, min_mapq, max_mapq, save_plt):
     plt.axvline(x=min_mapq, color='r', linestyle='dashed', linewidth=1)
     if max_mapq < 255:
         plt.axvline(x=max_mapq, color='r', linestyle='dashed', linewidth=1)
-    plt.savefig(out_png, bbox_inches='tight')
+
+    out = fig_to_base64(plt)
     plt.close()
 
-def plot_mismatches(edit_distance, min_nm, max_nm, save_plt):
+    return out
+
+    # out_png = save_plt + '.MAPQ.png'
+    # plt.savefig(out_png, bbox_inches='tight')
+    # plt.close()
+
+def plot_mismatches(edit_distance, min_nm, max_nm):
     '''
     Plot NM flag, number of mismatches in a read
 
@@ -262,51 +306,64 @@ def plot_mismatches(edit_distance, min_nm, max_nm, save_plt):
         edit_distance(list): list of mismatches to plot
         min_nm(int): minimum allowed edit distance
         max_nm(int): maximum allowed edit distance
-        save_plt(str): output path name to save plot
     '''
 
-    out_png = save_plt + '.NM.png'
+    fig = plt.figure()
     plt.hist(edit_distance, bins=20, range=(0,20), density=False, histtype='bar', 
     stacked=True, label=['Pass', 'Fail'])
     plt.legend(prop={'size': 10})
     plt.ylabel('Read count')
     plt.xlabel('Edit distance')
+    plt.title('NM, mismatched within an aligned read')
     if min_nm > 0:
         plt.axvline(x=min_nm, color='r', linestyle='dashed', linewidth=1)
     if max_nm > 0:
         plt.axvline(x=max_nm, color='r', linestyle='dashed', linewidth=1)
     plt.xlim(0, 20)
-    plt.savefig(out_png, bbox_inches='tight')
+    
+    out = fig_to_base64(plt)
     plt.close()
 
+    return out
 
-def plot_soft_clipped(soft_clipped, save_plt, ratio_filt=False):
+    # out_png = save_plt + '.NM.png'
+    # plt.savefig(out_png, bbox_inches='tight')
+
+
+
+def plot_soft_clipped(soft_clipped, ratio_filt=False):
     '''
     Plot histogram of soft clipped bases
 
     Args:
         soft_clipped(np.array): list of soft clipped bases to plot
-        max_sc(int): maximum allowed soft clipping
-        save_plt(str): output path name to save plot
     '''
     if ratio_filt:
-        out_png = save_plt + '.soft_clipping_pass.png'
+        # out_png = save_plt + '.soft_clipping_pass.png'
         plt.hist(soft_clipped, bins=200, density=False, histtype='bar',
         stacked=True, label=['Pass', 'Fail'])
+        plt.title('Soft clipping filter pass')
         plt.legend(prop={'size': 10})
     else:
-        out_png = save_plt + '.soft_clipping.png'
+        # out_png = save_plt + '.soft_clipping.png'
         plt.hist(soft_clipped, bins=200, density=False, histtype='bar',
         stacked=True, label=['Pass', 'Fail'])
+        plt.title('Soft clipping')
         plt.legend(prop={'size': 10})
     plt.yscale('log')
     plt.ylabel('Read count')
     plt.xlabel('Soft clipped bases')
-    plt.savefig(out_png, bbox_inches='tight') 
+
+    out = fig_to_base64(plt)
     plt.close()
 
+    return out
 
-def soft_clipped_vs_matched(sc, m, slope, save_plt):
+    # plt.savefig(out_png, bbox_inches='tight') 
+    # plt.close()
+
+
+def soft_clipped_vs_matched(sc, m, slope):
     '''
     Plot heatmap of soft clipped vs matched bases
 
@@ -314,41 +371,53 @@ def soft_clipped_vs_matched(sc, m, slope, save_plt):
         sc(np.array): soft clipped 
         m(np.array): matched
         slope(double): slope of line on plot
-        save_plt(str): output path name to save plot
     '''
-    out_png = save_plt + '.soft_clipping_vs_matched.png'
+    # out_png = save_plt + '.soft_clipping_vs_matched.png'
     heatmap, xedges, yedges = np.histogram2d(m, sc, bins=100)
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
 
     im = plt.imshow(np.log2(heatmap.T+1), extent=extent, origin='lower')
     plt.ylabel('Soft clipped')
     plt.xlabel('Matched')
+    plt.title('Soft clipping vs matched')
     xl=plt.xlim()
     plt.axline((0, 0), slope=slope)
     plt.xlim(xl[0])
     plt.colorbar(im)
-    plt.savefig(out_png, bbox_inches='tight') 
+
+    out = fig_to_base64(plt)
     plt.close()
 
-def matched_vs_matched(m_r1, m_r2, save_plt):
+    return out
+
+    # plt.savefig(out_png, bbox_inches='tight') 
+    # plt.close()
+
+def matched_vs_matched(m_r1, m_r2):
     '''
     Plot heatmap of matched read 1 bases vs matched read 2 bases
 
     Args:
         m_r1(np.array): matched read 1
         m_r2(np.array): matched read 2
-        save_plt(str): output path name to save plot
     '''
-    out_png = save_plt + '.matched_r1_vs_matched_r2.png'
+    # out_png = save_plt + '.matched_r1_vs_matched_r2.png'
     heatmap, xedges, yedges = np.histogram2d(m_r2, m_r1, bins=50)
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
 
     im = plt.imshow(np.log2(heatmap.T+1), extent=extent, origin='lower')
     plt.ylabel('Matched read 1')
     plt.xlabel('Matched read 2')
+    plt.title('Matched r1 vs matched r2')
     plt.colorbar(im)
-    plt.savefig(out_png, bbox_inches='tight') 
+
+    out = fig_to_base64(plt)
     plt.close()
+
+    return out
+
+    # plt.savefig(out_png, bbox_inches='tight') 
+    # plt.close()
 
 def none_context(a=None):
     '''
@@ -453,24 +522,24 @@ def filter_single_reads(args):
     if not args.no_plot:
 
         if args.output is None:
-            png_out = args.input
+            html_out = args.input + '.html'
         else:
-            png_out = args.output
+            html_out = args.output + '.html'
 
-        plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
-                args.mapq_min, args.mapq_max, png_out)
+        p1 =plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
+                     args.mapq_min, args.mapq_max)
 
-        plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
-                        args.edit_min, args.edit_max, png_out)
+        p2 = plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
+                        args.edit_min, args.edit_max)
 
-        plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object),
-                          png_out)
+        p3 = plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object))
 
-        plot_soft_clipped(np.array([soft_clip_pass, soft_clip_ratio_fail], dtype=object),
-                          png_out, ratio_filt=True)
+        p4 = plot_soft_clipped(np.array([soft_clip_pass, soft_clip_ratio_fail], dtype=object),
+                          ratio_filt=True)
 
-        soft_clipped_vs_matched(sc, m, args.max_ratio, png_out)
+        p5 = soft_clipped_vs_matched(sc, m, args.max_ratio)
 
+        write_html_report(html_out, [p1, p2, p3, p4, p5])
 
 def filter_paired_reads(args):
     '''
@@ -723,31 +792,32 @@ def filter_paired_reads(args):
 
     if not args.no_plot:
         if args.output is None:
-            png_out = args.input
+            html_out = args.input + '.html'
         else:
-            png_out = args.output
+            html_out = args.output + '.html'
 
-        plot_insert_size(np.array([insert_size_pass,insert_size_fail], dtype=object), 
-                        args.insert_min, args.insert_max, png_out)
+        p1 = plot_insert_size(np.array([insert_size_pass,insert_size_fail], dtype=object), 
+                        args.insert_min, args.insert_max)
 
-        plot_insert_size(insert_size_pass, 
-                        args.insert_min, args.insert_max, png_out, max_pass=args.insert_max)
+        p2 = plot_insert_size(insert_size_pass, args.insert_min, args.insert_max, 
+                              max_pass=args.insert_max)
 
-        plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
-                args.mapq_min, args.mapq_max, png_out)
+        p3 = plot_mapq(np.array([mapq_score_pass, mapq_score_fail], dtype=object), 
+                       args.mapq_min, args.mapq_max)
 
-        plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
-                        args.edit_min, args.edit_max, png_out)
+        p4 = plot_mismatches(np.array([edit_distance_pass, edit_distance_fail], dtype=object),
+                             args.edit_min, args.edit_max)
 
-        plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object),
-                        png_out)
+        p5 = plot_soft_clipped(np.array([soft_clip_pass, soft_clip_fail], dtype=object))
 
-        plot_soft_clipped(np.array([soft_clip_ratio_pass, soft_clip_ratio_fail], dtype=object), 
-                        png_out, ratio_filt=True)
+        p6 = plot_soft_clipped(np.array([soft_clip_ratio_pass, soft_clip_ratio_fail], dtype=object), 
+                               ratio_filt=True)
 
-        soft_clipped_vs_matched(sc, np.array(m_r1) + np.array(m_r2), args.max_ratio, png_out)
+        p7 = soft_clipped_vs_matched(sc, np.array(m_r1) + np.array(m_r2), args.max_ratio)
 
-        matched_vs_matched(m_r1, m_r2, png_out)
+        p8 = matched_vs_matched(m_r1, m_r2)
+
+        write_html_report(html_out, [p1, p2, p3, p4, p5, p6, p7, p8])
 
 
 def has_valid_edit_distance(read, min, max):

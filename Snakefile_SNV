@@ -1,0 +1,210 @@
+
+import glob
+from os import path
+import datetime
+import yaml
+from collections import defaultdict
+import sys
+import shutil
+import pandas as pd
+
+################################################################################
+# Load samples 
+################################################################################
+
+ALL_SAMPLES = []
+FILES = defaultdict(list)
+OUTPUT_DIR = defaultdict(str)
+for i in range(len(config["input_folder"])):
+    FULL_PATH = glob.glob(os.path.join(config["input_folder"][i], "*.bam"))
+    for f in FULL_PATH:
+        sample = os.path.basename(f).split('.bam')[0]
+        ALL_SAMPLES.append(sample)
+        FILES[sample].append(f)
+        OUTPUT_DIR[sample] = config["output_folder"][i]
+
+
+# INFO += f'Samples to process {ALL_SAMPLES} \n'
+
+try:
+    bam_filter="-f " + config["hybrid_filter"]
+except:
+    bam_filter=""
+
+try:
+    prefix_1 = config["prefix_1"]
+    prefix_2 = config["prefix_2"]
+    process_only = config["process_only"]
+except:
+    sys.exit("ERROR: prefix or process only parameters not set in config")
+
+try:
+    lianti_path = config["lianti_path"]
+    assert shutil.which(lianti_path) is not None, "lianti not executable or does not exist"
+except:
+    sys.exit("lianti not found")
+
+try:
+    snpsift_path = config["snpsift_path"]
+except:
+    sys.exit("SnpSift.jar not in config file")
+
+assert shutil.which(snpsift_path) is not None, "SnpSift.jar not executable or does not exist"
+
+
+
+
+
+
+
+VCF = [OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz" for s in ALL_SAMPLES]
+
+
+# VCF = [OUTPUT_DIR[s] + f"{s}.{prefix_1}.bam" for s in ALL_SAMPLES] + [OUTPUT_DIR[s] + f"{s}.{prefix_2}.bam" for s in ALL_SAMPLES]
+
+
+
+################################################################################
+################################################################################
+# Execute before workflow starts
+################################################################################
+################################################################################
+# onstart:
+#     print(INFO)
+################################################################################
+################################################################################
+# Rule all
+################################################################################
+################################################################################
+rule all:
+    input: 
+        VCF
+
+################################################################################
+# SNV calling and annotation
+################################################################################
+# TODO: Only output subset of BAM files
+rule split_hybrid:
+    '''
+    Assume the BAM files are coordinate sorted
+    '''
+    input:
+        lambda wildcards: FILES[os.path.basename(wildcards.sample)]
+    output:
+        f"{{output_dir}}{prefix_1}/{{sample}}.{prefix_1}.bam",
+        f"{{output_dir}}{prefix_2}/{{sample}}.{prefix_2}.bam"
+    wildcard_constraints:
+        output_dir="^.*(?:(\/))"
+        # sample="([^/]+$)"
+    conda:
+        "envs/sciStrand_env.yaml"
+    log:
+        f"{{output_dir}}logs/{{sample}}_hybrid_split.log"
+    shell:
+        '''
+        python scripts/split_hybrid.py \
+        -i {input} \
+        -o {wildcards.output_dir} \
+        -1 {prefix_1} \
+        -2 {prefix_2} \
+        {bam_filter} &> {log}
+        '''
+        
+# https://stackoverflow.com/questions/56024818/conditional-execution-of-multiplexed-analysis-with-snakemake/63848059#63848059
+# checkpoint qc:
+#     input:
+#         list(set([OUTPUT_DIR[s] + f"{process_only}/" for s in ALL_SAMPLES]))
+#     output:
+#         temp("qc.tsv")
+#     shell:
+#         "ls {input} >> {output}"
+
+
+
+rule filter_bam:
+    '''
+    Filter excessive soft-clipping
+    '''
+    input:
+        f"{{output_dir}}{process_only}/{{sample}}.{process_only}.bam"
+    output:
+        f"{{output_dir}}{process_only}/{{sample}}.{process_only}.filt.bam"
+    wildcard_constraints:
+        output_dir="^.*(?:(\/))"
+    conda:
+        "envs/sciStrand_env.yaml"
+    log:
+        f"{{output_dir}}logs/{{sample}}_filtered.log"
+    threads:
+        5
+    shell:
+        '''
+        python scripts/filter_bam.py \
+        -i {input} \
+        -o {output} \
+        --paired \
+        --threads {threads} \
+        --insert_max 2000 \
+        --sort \
+        --no_plot \
+        --max_ratio 0.5 &> {log}
+        '''
+
+
+
+
+rule lianti_pileup:
+    '''
+    tabix for SnpSift
+    only keep annotated files
+
+    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,ref,bnd,other [null]
+    -m/M, --min-alleles/--max-alleles <int>     minimum/maximum number of alleles listed in REF and ALT (e.g. -m2 -M2 for biallelic sites)
+    -O, --output-type <b|u|z|v>                 b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]
+    '''
+    input:
+        # f"{{output_dir}}{prefix_1}/{{sample}}.{prefix_1}.bam",
+        # f"{{output_dir}}{prefix_2}/{{sample}}.{prefix_2}.bam"
+        f"{{output_dir}}{process_only}/{{sample}}.{process_only}.filt.bam"
+    output:
+        vcf=temp(f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz"),
+        tbi=temp(f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz.tbi")
+    wildcard_constraints:
+        output_dir="^.*(?:(\/))"
+    conda:
+        "envs/sciStrand_env.yaml"
+    log:
+        f"{{output_dir}}logs/{{sample}}_lianti_pileup.log"
+    params:
+        fa_ref=config["ref_fa"]
+    shell:
+        '''
+        {lianti_path} pileup \
+        -cf {params.fa_ref} \
+        -C -q1,1 -Q20,20 -s2 -P20 -L 1 \
+        {input} |
+        grep -v "0,0:0,0:0$" | \
+        bcftools view -v snps -m 2 -M 2 -O z -o {output.vcf} &> {log}
+
+        tabix -p vcf {output.vcf}
+        '''
+
+rule vcf_annotation:
+    input:
+        vcf=f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz",
+        tbi=f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz.tbi"
+    output:
+        f"{{output_dir}}{process_only}/{{sample}}.{process_only}.filtered.vcf.gz"
+    wildcard_constraints:
+        output_dir="^.*(?:(\/))"
+    conda:
+        "envs/sciStrand_env.yaml"
+    params:
+        dbsnp=config["dbsnp"]
+    shell:
+        '''
+        java -Xmx5G -Xms5G -jar {snpsift_path} annotate -id -noInfo  \
+        {params.dbsnp} \
+        {input.vcf} | \
+        bgzip > {output}
+        '''

@@ -377,6 +377,7 @@ rule bowtie2_align_pe:
 
 rule sort_index_markdup_pe:
     '''
+    should be collated coming from aligner
     fill in mate coordinates and insert size fields
     sort
     mark duplicates

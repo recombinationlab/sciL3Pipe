@@ -1,0 +1,14 @@
+__default__:
+    time: "01:00:00"
+    mem: 5g
+    cpus: 1
+    nodes: 1
+    output: "{wildcards.output_dir}logs/cluster/{rule}.{wildcards.sample}.out"
+    error: "{wildcards.output_dir}logs/cluster/{rule}.{wildcards.sample}.err"
+filter_bam:
+    time: "01:00:00"
+    mem: 1g
+    cpus: 5
+    nodes: 1
+    output: "{wildcards.output_dir}logs/cluster/{rule}.{wildcards.sample}.out"
+    error: "{wildcards.output_dir}logs/cluster/{rule}.{wildcards.sample}.err"

@@ -15,6 +15,7 @@ import pandas as pd
 ALL_SAMPLES = []
 FILES = defaultdict(list)
 OUTPUT_DIR = defaultdict(str)
+# SAMPLES_IN_DIR = defaultdict(list)
 for i in range(len(config["input_folder"])):
     FULL_PATH = glob.glob(os.path.join(config["input_folder"][i], "*.bam"))
     for f in FULL_PATH:
@@ -22,7 +23,7 @@ for i in range(len(config["input_folder"])):
         ALL_SAMPLES.append(sample)
         FILES[sample].append(f)
         OUTPUT_DIR[sample] = config["output_folder"][i]
-
+        # SAMPLES_IN_DIR[config["output_folder"][i]].append(sample)
 
 # INFO += f'Samples to process {ALL_SAMPLES} \n'
 
@@ -51,16 +52,62 @@ except:
 
 assert shutil.which(snpsift_path) is not None, "SnpSift.jar not executable or does not exist"
 
+try:
+    qc_folder = config["qc_folder"]
+except:
+    sys.exit("Specify output folder for QC file")
 
 
 
 
+# SPLIT = [OUTPUT_DIR[s] + f"logs/{s}_hybrid_split.log" for s in ALL_SAMPLES]
 
-
-VCF = [OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz" for s in ALL_SAMPLES]
-
+# VCF = [OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz" for s in ALL_SAMPLES]
+# QC = [f"{d}logs/qc.tsv" for d in SAMPLES_IN_DIR.keys()]
 
 # VCF = [OUTPUT_DIR[s] + f"{s}.{prefix_1}.bam" for s in ALL_SAMPLES] + [OUTPUT_DIR[s] + f"{s}.{prefix_2}.bam" for s in ALL_SAMPLES]
+
+
+def get_results(wildcards):
+    print(checkpoints.qc.get().output[0])
+    qc = pd.read_csv(checkpoints.qc.get().output[0], sep="\t")
+
+    # BAM has fewer than 30% of total reads or less than 10000 reads and will be excluded
+    if process_only == 'mouse': # BAM_1
+        samples = qc[(pd.to_numeric(qc['BAM_2_PofT']) > 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+    elif process_only == 'human': # BAM_2
+        samples = qc[(pd.to_numeric(qc['BAM_1_PofT']) > 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+    
+    files_out = []
+
+    for s in samples:
+        s = os.path.basename(s).split('_hybrid_split.log')[0]
+        files_out.extend([OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz"])
+    return files_out
+
+
+def log_parse(log):
+    """
+    Parse split_hybrid.py log file(s).
+    """
+    linecount = 0
+    name, bam_1, bam_2  = [None] * 3
+    for line in log:
+        linecount += 1
+
+        if line.rstrip().endswith('log'):
+            name = line.rstrip()
+        elif line.startswith('BAM 1'):
+            bam_1 = line.rstrip().split(':')[-1]
+        elif line.startswith('BAM 2'):
+            bam_2 = line.rstrip().split(':')[-1]
+            yield name, bam_1, bam_2
+            name, bam_1, bam_2  = [None] * 3
+        else:
+            continue
+            
+
+
 
 
 
@@ -78,12 +125,17 @@ VCF = [OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz" for 
 ################################################################################
 rule all:
     input: 
-        VCF
-
+        get_results
+        # QC 
+        # VCF
+    
+wildcard_constraints:
+    output_dir="^.*(?:(\/))"
+    # sample="([^/]+$)"
 ################################################################################
 # SNV calling and annotation
 ################################################################################
-# TODO: Only output subset of BAM files
+
 rule split_hybrid:
     '''
     Assume the BAM files are coordinate sorted
@@ -92,32 +144,45 @@ rule split_hybrid:
         lambda wildcards: FILES[os.path.basename(wildcards.sample)]
     output:
         f"{{output_dir}}{prefix_1}/{{sample}}.{prefix_1}.bam",
-        f"{{output_dir}}{prefix_2}/{{sample}}.{prefix_2}.bam"
-    wildcard_constraints:
-        output_dir="^.*(?:(\/))"
-        # sample="([^/]+$)"
+        f"{{output_dir}}{prefix_2}/{{sample}}.{prefix_2}.bam",
+        f"{{output_dir}}logs/{{sample}}_hybrid_split.log"
     conda:
         "envs/sciStrand_env.yaml"
-    log:
-        f"{{output_dir}}logs/{{sample}}_hybrid_split.log"
+    # log:
+    #     f"{{output_dir}}logs/{{sample}}_hybrid_split.log"
     shell:
         '''
+        samtools index {input}
+
         python scripts/split_hybrid.py \
         -i {input} \
         -o {wildcards.output_dir} \
         -1 {prefix_1} \
         -2 {prefix_2} \
-        {bam_filter} &> {log}
+        {bam_filter} &> {output[2]}
         '''
-        
-# https://stackoverflow.com/questions/56024818/conditional-execution-of-multiplexed-analysis-with-snakemake/63848059#63848059
-# checkpoint qc:
-#     input:
-#         list(set([OUTPUT_DIR[s] + f"{process_only}/" for s in ALL_SAMPLES]))
-#     output:
-#         temp("qc.tsv")
-#     shell:
-#         "ls {input} >> {output}"
+
+
+checkpoint qc:
+    '''
+    Only output subset of BAM files, based on criteria in get_results
+    '''
+    input:
+        [OUTPUT_DIR[s] + f"logs/{s}_hybrid_split.log" for s in ALL_SAMPLES]
+    output:
+        qc_folder + "logs/qc.tsv"
+    run:
+        rows = []
+        for f in input:
+            with open(f) as tsv:
+                for name, bam_1, bam_2 in log_parse(tsv):
+                    total = int(bam_1) + int(bam_2)
+                    bam_1_pot = (int(bam_1)/total)*100
+                    bam_2_pot = (int(bam_2)/total)*100
+                    rows.append([f, bam_1, bam_2, bam_1_pot, bam_2_pot, total])
+
+        df = pd.DataFrame(rows, columns=['Files', 'BAM_1', 'BAM_2', 'BAM_1_PofT', 'BAM_2_PofT', 'Total'])
+        df.to_csv(output[0], sep='\t', index=False)
 
 
 
@@ -129,8 +194,6 @@ rule filter_bam:
         f"{{output_dir}}{process_only}/{{sample}}.{process_only}.bam"
     output:
         f"{{output_dir}}{process_only}/{{sample}}.{process_only}.filt.bam"
-    wildcard_constraints:
-        output_dir="^.*(?:(\/))"
     conda:
         "envs/sciStrand_env.yaml"
     log:
@@ -169,8 +232,6 @@ rule lianti_pileup:
     output:
         vcf=temp(f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz"),
         tbi=temp(f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz.tbi")
-    wildcard_constraints:
-        output_dir="^.*(?:(\/))"
     conda:
         "envs/sciStrand_env.yaml"
     log:
@@ -195,8 +256,6 @@ rule vcf_annotation:
         tbi=f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz.tbi"
     output:
         f"{{output_dir}}{process_only}/{{sample}}.{process_only}.filtered.vcf.gz"
-    wildcard_constraints:
-        output_dir="^.*(?:(\/))"
     conda:
         "envs/sciStrand_env.yaml"
     params:

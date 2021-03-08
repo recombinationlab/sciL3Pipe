@@ -5,5 +5,6 @@
 snakemake \
 --snakefile Snakefile_SNV \
 --use-conda \
+--conda-frontend mamba \
 --cores 2 \
 --configfile configs/config_SNV.yaml

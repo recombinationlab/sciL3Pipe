@@ -5,6 +5,7 @@
 snakemake \
 --snakefile Snakefile \
 --use-conda \
+--conda-frontend mamba \
 --configfile configs/config.yaml \
 -j 100 \
 --cluster-config cluster.yaml \

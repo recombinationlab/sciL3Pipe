@@ -5,6 +5,7 @@
 snakemake \
 --snakefile Snakefile_SNV \
 --use-conda \
+--conda-frontend mamba \
 --configfile configs/config_SNV.yaml \
 -j 100 \
 --restart-times 1 \

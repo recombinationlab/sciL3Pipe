@@ -12,6 +12,8 @@ import pandas as pd
 # Load samples 
 ################################################################################
 
+INFO = ''
+
 ALL_SAMPLES = []
 FILES = defaultdict(list)
 OUTPUT_DIR = defaultdict(str)
@@ -58,7 +60,11 @@ except:
     sys.exit("Specify output folder for QC file")
 
 
-
+try:
+    filt_only = config['filter_only']
+    INFO += 'Only filtering'
+except:
+    INFO += 'Calling SNVs'
 
 # SPLIT = [OUTPUT_DIR[s] + f"logs/{s}_hybrid_split.log" for s in ALL_SAMPLES]
 
@@ -67,6 +73,9 @@ except:
 
 # VCF = [OUTPUT_DIR[s] + f"{s}.{prefix_1}.bam" for s in ALL_SAMPLES] + [OUTPUT_DIR[s] + f"{s}.{prefix_2}.bam" for s in ALL_SAMPLES]
 
+# FILT = [OUTPUT_DIR[s] + f"{process_only}/{{s}}.{process_only}.filt.bam" for s in ALL_SAMPLES]
+
+
 
 def get_results(wildcards):
     print(checkpoints.qc.get().output[0])
@@ -74,22 +83,25 @@ def get_results(wildcards):
 
     # BAM has fewer than 30% of total reads or less than 10000 reads and will be excluded
     if process_only == 'mouse': # BAM_1
-        samples = qc[(pd.to_numeric(qc['BAM_2_PofT']) > 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+        samples = qc[(pd.to_numeric(qc['BAM_2_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
     elif process_only == 'human': # BAM_2
-        samples = qc[(pd.to_numeric(qc['BAM_1_PofT']) > 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+        samples = qc[(pd.to_numeric(qc['BAM_1_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
     
     files_out = []
 
     for s in samples:
         s = os.path.basename(s).split('_hybrid_split.log')[0]
-        files_out.extend([OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz"])
+        if filt_only:
+            files_out.extend([OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filt.bam"])
+        else:
+            files_out.extend([OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz"])
     return files_out
 
 
 def log_parse(log):
-    """
+    '''
     Parse split_hybrid.py log file(s).
-    """
+    '''
     linecount = 0
     name, bam_1, bam_2  = [None] * 3
     for line in log:
@@ -116,8 +128,8 @@ def log_parse(log):
 # Execute before workflow starts
 ################################################################################
 ################################################################################
-# onstart:
-#     print(INFO)
+onstart:
+    print(INFO)
 ################################################################################
 ################################################################################
 # Rule all
@@ -198,6 +210,8 @@ rule filter_bam:
         "envs/sciStrand_env.yaml"
     log:
         f"{{output_dir}}logs/{{sample}}_filtered.log"
+    params:
+        dup='--mark_duplicate' if config['mark_duplicate'] else ''
     threads:
         5
     shell:
@@ -208,6 +222,7 @@ rule filter_bam:
         --paired \
         --threads {threads} \
         --insert_max 2000 \
+        {params.dup} \
         --sort \
         --no_plot \
         --max_ratio 0.5 &> {log}

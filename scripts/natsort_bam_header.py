@@ -112,3 +112,6 @@ def write_bam(args):
     print('Reads not written out:', not_written)
     if orphan_reads > 0:
         print('Orphan reads skipped:', orphan_reads)
+
+if __name__ == '__main__':
+    main()

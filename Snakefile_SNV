@@ -93,8 +93,10 @@ def get_results(wildcards):
         s = os.path.basename(s).split('_hybrid_split.log')[0]
         if filt_only:
             files_out.extend([OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filt.bam"])
+            files_out.extend([qc_folder + "logs/idxstats_summary.tsv"])
         else:
             files_out.extend([OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz"])
+            files_out.extend([qc_folder + "logs/idxstats_summary.tsv"])
     return files_out
 
 
@@ -145,7 +147,7 @@ wildcard_constraints:
     output_dir="^.*(?:(\/))"
     # sample="([^/]+$)"
 ################################################################################
-# SNV calling and annotation
+# QC and filtering
 ################################################################################
 
 rule split_hybrid:
@@ -229,7 +231,31 @@ rule filter_bam:
         '''
 
 
+rule idxstats_qc:
+    '''
+    Summary of idxstats for all BAM files
+    '''
+    input:
+        [OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.bam" for s in ALL_SAMPLES]
+    output:
+        qc_folder + "logs/idxstats_summary.tsv"
+    params:
+        dir = ' '.join(config["input_folder"]),
+        format = 'ensembl' if process_only == 'human' else 'UCSC'
+    shell:
+        '''
+        echo {params.dir}
+        python scripts/aggregate_idxstats.py \
+        -d {params.dir} \
+        -o {output} \
+        --format {params.format} \
+        --regex "*.bam"
+        '''
 
+
+################################################################################
+# SNV calling and annotation
+################################################################################
 
 rule lianti_pileup:
     '''

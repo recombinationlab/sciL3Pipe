@@ -1250,14 +1250,14 @@ def filter_paired_reads_old(args):
                     StopIteration
                     EOF = True
             else:
-                if current_read.is_secondary or current_read.is_supplementary or
+                if current_read.is_secondary or current_read.is_supplementary or \
                 read.is_secondary or read.is_supplementary:
                     secondary_supplemental += 1
                 else:
                     singletons += 1
                 current_read = read
     if not EOF:
-        if current_read.is_secondary or current_read.is_supplementary or
+        if current_read.is_secondary or current_read.is_supplementary or \
            read.is_secondary or read.is_supplementary:
             secondary_supplemental += 1
         else:

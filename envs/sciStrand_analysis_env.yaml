@@ -1,0 +1,13 @@
+channels:
+  - bioconda
+  - anaconda
+  - conda-forge
+dependencies:
+  - pysam=0.16.0.1
+  - argparse=1.4.0
+  - matplotlib=3.3.2
+  - natsort=7.1.0
+  - bcftools=1.11
+  - java-jdk=8.0.92
+  - bioconductor-breakpointr=1.8.0
+  - r-argparse=2.0.3

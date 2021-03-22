@@ -62,9 +62,24 @@ except:
 
 try:
     filt_only = config['filter_only']
-    INFO += 'Only filtering'
+    INFO += 'Only filtering\n'
 except:
-    INFO += 'Calling SNVs'
+    INFO += 'Calling SNVs\n'
+
+try:
+    run_breakpointr = config["run_breakpointr"]
+    if run_breakpointr:
+        INFO += "Running BreakpointR\n"
+except:
+    INFO += "Not running BreakpointR\n"
+
+try:
+    run_type = config["type"]
+except:
+    if run_breakpointr:
+        sys.exit("ERROR: Need to specify type if running BreakpointR")
+    else:
+        run_type = None
 
 # SPLIT = [OUTPUT_DIR[s] + f"logs/{s}_hybrid_split.log" for s in ALL_SAMPLES]
 
@@ -74,6 +89,7 @@ except:
 # VCF = [OUTPUT_DIR[s] + f"{s}.{prefix_1}.bam" for s in ALL_SAMPLES] + [OUTPUT_DIR[s] + f"{s}.{prefix_2}.bam" for s in ALL_SAMPLES]
 
 # FILT = [OUTPUT_DIR[s] + f"{process_only}/{{s}}.{process_only}.filt.bam" for s in ALL_SAMPLES]
+
 
 
 
@@ -92,11 +108,13 @@ def get_results(wildcards):
     for s in samples:
         s = os.path.basename(s).split('_hybrid_split.log')[0]
         if filt_only:
-            files_out.extend([OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filt.bam"])
+            files_out.extend([OUTPUT_DIR[s] + f"{process_only}/filtered/{s}.{process_only}.filt.bam"])
             files_out.extend([qc_folder + "logs/idxstats_summary.tsv"])
         else:
             files_out.extend([OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz"])
             files_out.extend([qc_folder + "logs/idxstats_summary.tsv"])
+        if run_breakpointr:
+            files_out.extend(list(set([OUTPUT_DIR[s] + f"{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"])))
     return files_out
 
 
@@ -161,7 +179,7 @@ rule split_hybrid:
         f"{{output_dir}}{prefix_2}/{{sample}}.{prefix_2}.bam",
         f"{{output_dir}}logs/{{sample}}_hybrid_split.log"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciStrand_analysis_env.yaml"
     # log:
     #     f"{{output_dir}}logs/{{sample}}_hybrid_split.log"
     shell:
@@ -207,9 +225,9 @@ rule filter_bam:
     input:
         f"{{output_dir}}{process_only}/{{sample}}.{process_only}.bam"
     output:
-        f"{{output_dir}}{process_only}/{{sample}}.{process_only}.filt.bam"
+        f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filt.bam"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciStrand_analysis_env.yaml"
     log:
         f"{{output_dir}}logs/{{sample}}_filtered.log"
     params:
@@ -239,6 +257,8 @@ rule idxstats_qc:
         [OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.bam" for s in ALL_SAMPLES]
     output:
         qc_folder + "logs/idxstats_summary.tsv"
+    conda:
+        "envs/sciStrand_analysis_env.yaml"
     params:
         dir = ' '.join(config["input_folder"]),
         format = 'ensembl' if process_only == 'human' else 'UCSC'
@@ -274,7 +294,7 @@ rule lianti_pileup:
         vcf=temp(f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz"),
         tbi=temp(f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz.tbi")
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciStrand_analysis_env.yaml"
     log:
         f"{{output_dir}}logs/{{sample}}_lianti_pileup.log"
     params:
@@ -298,7 +318,7 @@ rule vcf_annotation:
     output:
         f"{{output_dir}}{process_only}/{{sample}}.{process_only}.filtered.vcf.gz"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciStrand_analysis_env.yaml"
     params:
         dbsnp=config["dbsnp"]
     shell:
@@ -307,4 +327,32 @@ rule vcf_annotation:
         {params.dbsnp} \
         {input.vcf} | \
         bgzip > {output}
+        '''
+
+################################################################################
+# BreakpointR
+################################################################################
+
+rule breakpointr:
+    input:
+        directory(f"{{output_dir}}{process_only}/filtered/")
+    output:
+        f"{{output_dir}}{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"
+    conda:
+        "envs/sciStrand_analysis_env.yaml"
+    threads:
+        10
+    params:
+        out_dir = f"{{output_dir}}{process_only}/breakpointR_{run_type}/",
+        blacklist = config["blacklist"]
+    log:
+        f"{{output_dir}}logs/breakpointr_{run_type}.txt"
+    shell:
+        '''
+        Rscript scripts/run_breakpointr.R \
+        -i {input} \
+        -o {params.out_dir} \
+        -t {threads} \
+        --type {run_type} \
+        -b {params.blacklist} &> {log}
         '''

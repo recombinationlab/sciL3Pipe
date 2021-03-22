@@ -8,6 +8,7 @@ snakemake \
 --conda-frontend mamba \
 --configfile configs/config_SNV.yaml \
 -j 100 \
+--latency-wait 300 \
 --restart-times 1 \
 --cluster-config cluster_SNV.yaml \
 --cluster "qsub -V -cwd \

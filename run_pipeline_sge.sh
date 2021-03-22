@@ -8,6 +8,7 @@ snakemake \
 --conda-frontend mamba \
 --configfile configs/config.yaml \
 -j 100 \
+--latency-wait 300 \
 --cluster-config cluster.yaml \
 --cluster "qsub -V -cwd \
 -l highp,h_data={cluster.mem},h_rt={cluster.time},nodes={cluster.nodes} \

@@ -1,0 +1,39 @@
+input_folder:
+   - "/mnt/data/sci-l3/test/split_bam_bwa/yi292/yi292_CACGTG/"
+   - "/mnt/data/sci-l3/test/split_bam_bwa/yi292/yi292_GTGCAG/"
+output_folder:
+   - "/mnt/data/sci-l3/test/SNV/yi292/yi292_CACGTG/"
+   - "/mnt/data/sci-l3/test/SNV/yi292/yi292_GTGCAG/"
+qc_folder: "/mnt/data/sci-l3/test/SNV/yi292/"
+################################################################################
+# BAM split
+################################################################################
+# chr assembly prefix
+prefix_1: "mouse"
+# non-chr assembly prefix
+prefix_2: "human"
+hybrid_filter: "NC_007605,hs37d5,Y"
+################################################################################
+# BAM filter
+################################################################################
+process_only: "human"
+# Do not continue onto pileup and variant calling / annotation
+filter_only: True
+mark_duplicate: False
+################################################################################
+# lianti pileup
+################################################################################
+lianti_path: "/mnt/data/Projects/lianti/lianti"
+ref_fa: "/mnt/data/genomes/GRCh38.p13/GRCh38.p13.fa.gz"
+################################################################################
+# VCF annotation
+################################################################################
+snpsift_path: "/mnt/data/snpEff/SnpSift.jar"
+dbsnp: "/mnt/data/genomes/GRCh38.p13/GCF_000001405.25.gz"
+################################################################################
+# BreakpointR
+################################################################################
+run_breakpointr: True
+blacklist: "/mnt/data/genomes/hg19-blacklist.v2.ensembl.bed"
+# haploid or diploid 
+type: "haploid"

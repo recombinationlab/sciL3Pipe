@@ -16,5 +16,5 @@ dependencies:
   - natsort=7.1.0
   - pigz=2.4
   - cutadapt=3.0
-  - bcftools=1.11
-  - java-jdk=8.0.92
+  # - bcftools=1.11
+  # - java-jdk=8.0.92

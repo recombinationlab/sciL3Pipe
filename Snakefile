@@ -5,6 +5,8 @@ import yaml
 from shutil import which
 
 # SAMPLES = ["yi293_GAACCG"]
+# TODO: remove markdup and implement umi_tools
+# TODO: update filter_bam.py rule (don't need to collate sort anymore)
 
 v = datetime.datetime.now()
 run_date = v.strftime('%Y.%m.%d.')

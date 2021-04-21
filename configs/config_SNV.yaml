@@ -37,3 +37,15 @@ run_breakpointr: True
 blacklist: "/mnt/data/genomes/hg19-blacklist.v2.ensembl.bed"
 # haploid or diploid 
 type: "haploid"
+################################################################################
+# Breakpoint filtering
+################################################################################
+run_filtering: True
+# hg19, hg38 or mm10
+assembly: "hg38"
+distance_cutoff: 2000000
+centromere_cutoff: 3000000
+filter_region: 15
+# path to package source
+breakpointRAddon: "/mnt/data/Projects/breakpointRAddon/"
+################################################################################

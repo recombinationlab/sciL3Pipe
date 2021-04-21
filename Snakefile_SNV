@@ -12,7 +12,7 @@ import pandas as pd
 # Load samples 
 ################################################################################
 
-INFO = ''
+INFO = ""
 
 ALL_SAMPLES = []
 FILES = defaultdict(list)
@@ -61,15 +61,20 @@ except:
 
 
 try:
-    filt_only = config['filter_only']
-    INFO += 'Only filtering\n'
+    filt_only = config["filter_only"]
+    INFO += "Only filtering\n"
 except:
-    INFO += 'Calling SNVs\n'
+    INFO += "Calling SNVs\n"
 
 try:
     run_breakpointr = config["run_breakpointr"]
-    if run_breakpointr:
-        INFO += "Running BreakpointR\n"
+    run_filtering = config["run_filtering"]
+    if run_breakpointr and run_filtering:
+        INFO += "Running BreakpointR and filtering\n"
+    elif run_breakpointr and not run_filtering:
+        INFO += "Running BreakpointR, but not filtering\n"
+    if not run_breakpointr and run_filtering:
+        sys.exit("ERROR: Cannot run filtering without running BreakpointR")
 except:
     INFO += "Not running BreakpointR\n"
 
@@ -80,6 +85,39 @@ except:
         sys.exit("ERROR: Need to specify type if running BreakpointR")
     else:
         run_type = None
+
+try:
+    assembly = config["assembly"]
+    INFO += "Assembly: " + str(assembly) + "\n"
+except:
+    if run_filtering:
+        sys.exit("ERROR: Need to specify assembly if filtering")
+    else:
+        assembly = None
+
+try:
+    distance_cutoff = config["distance_cutoff"]
+    centromere_cutoff = config["centromere_cutoff"]
+    INFO += "Distance cutoff: " + str(distance_cutoff) + "\n"
+    INFO += "Centromere distance cutoff: " + str(centromere_cutoff) + "\n"
+except:
+    if run_filtering:
+        sys.exit("ERROR: Need to specify cutoffs if filtering")
+    else:
+        distance_cutoff = None
+        centromere_cutoff = None
+
+try:
+    filter_region = config["filter_region"]
+    INFO += "Specified region additionally filtered: " + str(filter_region) + "\n"
+except:
+    INFO += "No region filtering performed\n"
+    filter_region = None
+
+try:
+    package_path = config["breakpointRAddon"]
+except:
+    package_path = None
 
 # SPLIT = [OUTPUT_DIR[s] + f"logs/{s}_hybrid_split.log" for s in ALL_SAMPLES]
 
@@ -94,7 +132,7 @@ except:
 
 
 def get_results(wildcards):
-    print(checkpoints.qc.get().output[0])
+    # print(checkpoints.qc.get().output[0])
     qc = pd.read_csv(checkpoints.qc.get().output[0], sep="\t")
 
     # BAM has fewer than 30% of total reads or less than 10000 reads and will be excluded
@@ -106,15 +144,17 @@ def get_results(wildcards):
     files_out = []
 
     for s in samples:
-        s = os.path.basename(s).split('_hybrid_split.log')[0]
-        if filt_only:
-            files_out.extend([OUTPUT_DIR[s] + f"{process_only}/filtered/{s}.{process_only}.filt.bam"])
+        s = os.path.basename(s).split("_hybrid_split.log")[0]
+        if filt_only and not run_breakpointr:
+            files_out.extend([OUTPUT_DIR.get(s) + f"{process_only}/filtered/{s}.{process_only}.filt.bam"])
             files_out.extend([qc_folder + "logs/idxstats_summary.tsv"])
-        else:
-            files_out.extend([OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz"])
+        elif not filt_only:
+            files_out.extend([OUTPUT_DIR.get(s) + f"{process_only}/filtered/{s}.{process_only}.filtered.vcf.gz"])
             files_out.extend([qc_folder + "logs/idxstats_summary.tsv"])
-        if run_breakpointr:
-            files_out.extend(list(set([OUTPUT_DIR[s] + f"{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"])))
+        elif run_breakpointr:
+            files_out.extend(list(set([OUTPUT_DIR.get(s) + f"{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"])))
+            if run_filtering:
+                files_out.extend(list(set([OUTPUT_DIR.get(s) + f"{process_only}/breakpointR_{run_type}/breakPoint_qc_summary.csv"])))
     return files_out
 
 
@@ -231,7 +271,7 @@ rule filter_bam:
     log:
         f"{{output_dir}}logs/{{sample}}_filtered.log"
     params:
-        dup='--mark_duplicate' if config['mark_duplicate'] else ''
+        dup="--mark_duplicate" if config["mark_duplicate"] else ""
     threads:
         5
     shell:
@@ -289,10 +329,10 @@ rule lianti_pileup:
     input:
         # f"{{output_dir}}{prefix_1}/{{sample}}.{prefix_1}.bam",
         # f"{{output_dir}}{prefix_2}/{{sample}}.{prefix_2}.bam"
-        f"{{output_dir}}{process_only}/{{sample}}.{process_only}.filt.bam"
+        f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filt.bam"
     output:
-        vcf=temp(f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz"),
-        tbi=temp(f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz.tbi")
+        vcf=temp(f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz"),
+        tbi=temp(f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz.tbi")
     conda:
         "envs/sciStrand_analysis_env.yaml"
     log:
@@ -313,10 +353,10 @@ rule lianti_pileup:
 
 rule vcf_annotation:
     input:
-        vcf=f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz",
-        tbi=f"{{output_dir}}{process_only}/{{sample}}.{process_only}.vcf.gz.tbi"
+        vcf=f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz",
+        tbi=f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz.tbi"
     output:
-        f"{{output_dir}}{process_only}/{{sample}}.{process_only}.filtered.vcf.gz"
+        f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filtered.vcf.gz"
     conda:
         "envs/sciStrand_analysis_env.yaml"
     params:
@@ -333,9 +373,31 @@ rule vcf_annotation:
 # BreakpointR
 ################################################################################
 
+
+def breakpointr_input(wildcards):
+    qc = pd.read_csv(checkpoints.qc.get().output[0], sep="\t")
+
+    # BAM has fewer than 30% of total reads or less than 10000 reads and will be excluded
+    if process_only == 'mouse': # BAM_1
+        samples = qc[(pd.to_numeric(qc['BAM_2_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+    elif process_only == 'human': # BAM_2
+        samples = qc[(pd.to_numeric(qc['BAM_1_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+    
+    files_out = []
+
+    for s in samples:
+        s = os.path.basename(s).split("_hybrid_split.log")[0]
+        if OUTPUT_DIR.get(s) in {wildcards.output_dir}:
+            files_out.extend([f"{wildcards.output_dir}{process_only}/filtered/{s}.{process_only}.filt.bam"])
+
+    return files_out
+
+
+
 rule breakpointr:
     input:
-        directory(f"{{output_dir}}{process_only}/filtered/")
+        qc_folder + "logs/qc.tsv",
+        breakpointr_input
     output:
         f"{{output_dir}}{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"
     conda:
@@ -344,15 +406,47 @@ rule breakpointr:
         10
     params:
         out_dir = f"{{output_dir}}{process_only}/breakpointR_{run_type}/",
-        blacklist = config["blacklist"]
+        blacklist = config["blacklist"],
+        dir_in=f"{{output_dir}}{process_only}/filtered/"
     log:
         f"{{output_dir}}logs/breakpointr_{run_type}.txt"
     shell:
         '''
         Rscript scripts/run_breakpointr.R \
-        -i {input} \
+        -i {params.dir_in} \
         -o {params.out_dir} \
         -t {threads} \
         --type {run_type} \
         -b {params.blacklist} &> {log}
+        '''
+
+rule filter_breakpoints:
+    input:
+        f"{{output_dir}}{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"
+    output:
+        f"{{output_dir}}{process_only}/breakpointR_{run_type}/breakPoint_qc_summary.csv"
+    conda:
+        "envs/sciStrand_analysis_env.yaml"
+    threads:
+        10
+    params:
+       dir_in = f"{{output_dir}}{process_only}/breakpointR_{run_type}/data/",
+       out_dir = f"{{output_dir}}{process_only}/breakpointR_{run_type}/data_filtered/",
+       filt = "" if filter_region is None else f"-f {filter_region}",
+       pckg = "" if package_path is None else f"-p {package_path}"
+    log:
+        f"{{output_dir}}logs/breakpointr_{run_type}_filtering.txt"
+    shell:
+        '''
+        Rscript scripts/run_filtering.R \
+        -i {params.dir_in} \
+        -o {params.out_dir} \
+        -s {output} \
+        -t {threads} \
+        --type {run_type} \
+        -a {assembly} \
+        -d {distance_cutoff} \
+        -c {centromere_cutoff} \
+        {params.filt} \
+        {params.pckg} &> {log}
         '''

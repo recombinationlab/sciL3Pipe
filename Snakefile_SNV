@@ -89,6 +89,12 @@ except:
 try:
     assembly = config["assembly"]
     INFO += "Assembly: " + str(assembly) + "\n"
+    if assembly == "hg19":
+        cent_bed = "centromere/hg19_centromere.bed"
+    elif assembly == "hg38":
+        cent_bed = "centromere/hg38_centromere.bed"
+    elif assembly == "mm10":
+        cent_bed = "centromere/mm10_centromere.bed"
 except:
     if run_filtering:
         sys.exit("ERROR: Need to specify assembly if filtering")
@@ -447,6 +453,7 @@ rule filter_breakpoints:
         -a {assembly} \
         -d {distance_cutoff} \
         -c {centromere_cutoff} \
+        -b {cent_bed} \
         {params.filt} \
         {params.pckg} &> {log}
         '''

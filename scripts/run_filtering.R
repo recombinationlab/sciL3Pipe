@@ -15,6 +15,11 @@ if(suppressMessages(!require(BiocManager, quietly = TRUE))){
   suppressMessages(library(BiocManager, quietly = TRUE))
 }
 
+if(suppressMessages(!require(rtracklayer, quietly = TRUE))){
+  BiocManager::install("rtracklayer")
+  suppressMessages(library(rtracklayer, quietly = TRUE))
+}
+
 parse_arguments <- function(){
   parser <- ArgumentParser(description="Run breakpointR")
   parser$add_argument("-i","--input_folder", metavar="PATH", type="character", dest="input_folder",
@@ -42,34 +47,37 @@ parse_arguments <- function(){
                       help="Path to source of breakpointRAddon to install if not installed already")
   parser$add_argument("-f", "--filter", dest="filter", type="character", default=NULL,
                       help="Filter whole chromosome or a single location")
-  
+  parser$add_argument("-b", "--bed", dest="bed", type="character",
+                      help="BED file with centromere coordinates")
+
   args <- parser$parse_args()
-  
+
   return(args)
 }
 
 
 
 main <- function(){
-  
+
   args <- parse_arguments()
 
   if(suppressMessages(!require(breakpointRAddon, quietly = TRUE))){
     remotes::install_local(args$package, dependencies=TRUE, upgrade=FALSE, repos=BiocManager::repositories())
     suppressMessages(library(breakpointRAddon, quietly = TRUE))
   }
-  
+
 
 # args <- parse_arguments(c("-i", "/mnt/data/sci-l3/test/SNV/yi292/yi292_CACGTG/human/breakpointR_haploid/data/",
 #                      "-o", "/mnt/data/sci-l3/test/SNV/yi292/yi292_CACGTG/human/breakpointR_haploid/data_filtered/",
+#                      "-s", "/mnt/data/sci-l3/test/SNV/yi292/yi292_CACGTG/human/breakpointR_haploid/summary.csv",
 #                      "-t", "4",
 #                      "--type","haploid",
 #                      "-a", "hg19",
 #                      "-d", "2000000",
 #                      "-c", "3000000",
 #                      "-f", "15"))
-  
-  cat("=========================== Running filtering  ===========================\n", 
+
+  cat("=========================== Running filtering  ===========================\n",
       "Input folder: ", args$input_folder, "\n",
       "Output folder: ", args$output_folder, "\n",
       "Distance cutoff: ", args$distance_cutoff, "\n",
@@ -77,39 +85,44 @@ main <- function(){
       "Type: ", args$type, "\n",
       "Filtering: ", args$filter, "\n",
       "==========================================================================\n")
-  
+
   if(args$type == "haploid"){
     gtype <- TRUE
   }else{
     gtype <- FALSE
   }
-  
-  if(args$assembly == "hg19"){
-    cent_coord <- get_centromere_coordinates("hg19", ensembl = TRUE)
-  }else if(args$assembly == "hg38"){
-    cent_coord <- get_centromere_coordinates("hg38", reduce_single = TRUE, ensembl = TRUE)
-  }else if(args$assembly == "mm10"){
-    cent_coord <- get_centromere_coordinates("mm10", ensembl = FALSE)
+
+  if(!is.null(args$bed)){
+    cent_coord <- rtracklayer::import.bed(args$bed)
+  }else{
+    if(args$assembly == "hg19"){
+      cent_coord <- get_centromere_coordinates("hg19", ensembl = TRUE)
+    }else if(args$assembly == "hg38"){
+      cent_coord <- get_centromere_coordinates("hg38", reduce_single = TRUE, ensembl = TRUE)
+    }else if(args$assembly == "mm10"){
+      cent_coord <- get_centromere_coordinates("mm10", ensembl = FALSE)
+    }
   }
-  
+
+
   breakpoint_filter(args$input_folder, args$output_folder,
                     distance_cutoff=args$distance_cutoff,
                     filt=args$filt, assembly=args$assembly,
                     centromere_distance_cutoff=args$centromere_distance,
                     num_threads=args$threads,
                     haploid=gtype)
-  
-  cat("======= Creating summary =======\n", 
+
+  cat("======= Creating summary =======\n",
       "Input folder: ", args$input_folder, "\n",
       "===========================================================================\n")
-  
+
   b_summary <- breakpoint_summary(args$output_folder, num_threads=args$threads)
   write.csv(b_summary,
-            args$summary_output, 
+            args$summary_output,
             quote = FALSE, row.names = FALSE)
-  
+
   cat("======= Finished =======\n")
-  
+
 }
 
 main()

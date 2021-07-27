@@ -145,7 +145,7 @@ rule merge_fastqs_pe:
         r1 = out_dir + "merged/{sample}.R1.fastq.gz",
         r2 = out_dir + "merged/{sample}.R2.fastq.gz"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     shell:
         ''' 
         count_1=$(echo '{input.r1}' | awk -F' ' '{{print NF}}')
@@ -180,7 +180,7 @@ rule extract_split_sss:
                 out_dir + 'split_SSS/{{sample}}/{sss}.R2.ordered.fastq'],
                 sss=POST_SSS_SAMPLES)
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     log:
         out_dir + "logs/{sample}_sss.log"
     params:
@@ -215,7 +215,7 @@ rule bgzip_sss_fastq:
         out_dir + 'split_SSS/{sample}/{sss}.R1.ordered.fastq.gz',
         out_dir + 'split_SSS/{sample}/{sss}.R2.ordered.fastq.gz'
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     threads:
         10
     shell: 
@@ -243,7 +243,7 @@ rule cutadapt:
     log:
         out_dir + "logs/{sample}/{sss}_cutadapt_r1.log"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     threads: 
         10
     shell:
@@ -268,7 +268,7 @@ rule extract_tn5_barcodes:
     output:
         out_dir + "trimmed/{sample}/{sss}.R1.bc1.bc2.txt.gz"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     shell:
         '''
         awk -F $'\t' '{{if($2>=0) {{print substr($5,length($5)-20,7), substr($5,length($5)-7,8);}} else print "NA","NA"}}' \
@@ -286,7 +286,7 @@ rule attach_tn5_barcodes:
         out_dir + "trimmed/{sample}/{sss}.R2.trimmed.attached.fastq.gz",
         out_dir + "trimmed/{sample}/{sss}.noME.R1-2.fastq.gz"]
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     log:
         out_dir + "logs/{sample}/{sss}.tn5_ligation_barcodes.log"
     params:
@@ -333,7 +333,7 @@ rule bwa_align_pe:
     log:
         out_dir + f"logs/{{sample}}/{{sss}}.PE.bwa.{assembly}.log"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     params:
         rg="\'@RG\\tID:{sss}\\tSM:{sss}\\tPL:ILLUMINA\'"
     shell:
@@ -364,7 +364,7 @@ rule bowtie2_align_pe:
     log:
         out_dir + f"logs/{{sample}}/{{sss}}.PE.bowtie2.{assembly}.log"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     shell:
         '''
         (bowtie2 \
@@ -396,7 +396,7 @@ rule sort_index_markdup_pe:
         idxstats=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.idxstats",
         stats=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.markdup.bam.stats"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     threads:
         10
     shell:
@@ -425,7 +425,7 @@ rule qc_plots:
         png1=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.collate.bam.NM.png",
         png2=out_dir + f"alignments/{{sample}}/{{sss}}.PE.{aligner}.{assembly}.collate.bam.MAPQ.png"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     params:
         hr='--hybrid_reference' if config['hybrid_reference'] else ''
     log:
@@ -461,7 +461,7 @@ checkpoint split_bam:
     output:
         directory(out_dir + f"split_bam_{aligner}/{{sample}}/{{sss}}")
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     log:
         out_dir + f"logs/{{sample}}/{{sss}}.{aligner}.split_bam.log"
     params: 
@@ -496,7 +496,7 @@ rule bed_files:
         uniq1=temp(out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.R1.human.Qgt0.uniq1.bed"),
         uniq2=temp(out_dir + f"bed_files_{aligner}/{{sample}}/{{sss}}/{{i}}.R1.human.Qgt0.uniq2.bed")
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     shell:
         '''
         samtools index {input}
@@ -547,7 +547,7 @@ rule genome_coverage:
     output:
         out_dir + f"genome_coverage_{aligner}/{{sample}}/{{sss}}.genome_coverage.txt"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     shell:
         '''
         for i in {input.bam}; do
@@ -572,7 +572,7 @@ rule summary:
     output:
         out_dir + "genome_coverage_{aligner}/single_cells/single_cell_summary_all.txt"
     conda:
-        "envs/sciStrand_env.yaml"
+        "envs/sciL3_env.yaml"
     shell:
         '''
         for i in {input}; do

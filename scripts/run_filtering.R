@@ -50,7 +50,7 @@ parse_arguments <- function(){
   parser$add_argument("-b", "--bed", dest="bed", type="character",
                       help="BED file with centromere coordinates")
 
-  args <- parser$parse_args()
+  # args <- parser$parse_args(args)
 
   return(args)
 }
@@ -67,15 +67,14 @@ main <- function(){
   }
 
 
-# args <- parse_arguments(c("-i", "/mnt/data/sci-l3/test/SNV/yi292/yi292_CACGTG/human/breakpointR_haploid/data/",
-#                      "-o", "/mnt/data/sci-l3/test/SNV/yi292/yi292_CACGTG/human/breakpointR_haploid/data_filtered/",
-#                      "-s", "/mnt/data/sci-l3/test/SNV/yi292/yi292_CACGTG/human/breakpointR_haploid/summary.csv",
-#                      "-t", "4",
-#                      "--type","haploid",
-#                      "-a", "hg19",
-#                      "-d", "2000000",
-#                      "-c", "3000000",
-#                      "-f", "15"))
+# args <- parse_arguments(c("-i", "/mnt/data/tmp/data/",
+#                      "-o", "/mnt/data/tmp/data_filtered/",
+#                      "-s", "/mnt/data/tmp/summary.csv",
+#                      "-t", "1",
+#                      "--type","diploid",
+#                      "-a", "mm10",
+#                      "-d", "5000000",
+#                      "-c", "5000000"))
 
   cat("=========================== Running filtering  ===========================\n",
       "Input folder: ", args$input_folder, "\n",
@@ -104,13 +103,13 @@ main <- function(){
     }
   }
 
-
-  breakpoint_filter(args$input_folder, args$output_folder,
-                    distance_cutoff=args$distance_cutoff,
-                    filt=args$filt, assembly=args$assembly,
-                    centromere_distance_cutoff=args$centromere_distance,
-                    num_threads=args$threads,
-                    haploid=gtype)
+  f_summary <- breakpoint_filter(args$input_folder, args$output_folder,
+                                distance_cutoff=args$distance_cutoff,
+                                cent=cent_coord,
+                                filt=args$filt, assembly=args$assembly,
+                                centromere_distance_cutoff=args$centromere_distance,
+                                num_threads=args$threads,
+                                haploid=gtype)
 
   cat("======= Creating summary =======\n",
       "Input folder: ", args$input_folder, "\n",

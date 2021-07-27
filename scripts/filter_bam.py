@@ -45,7 +45,7 @@ def parse_arguments(args=None):
                                 'sequence and the reference sequence falls ' +
                                 'within [X, Y], keep the read. Otherwise ' +
                                 'remove it. To ignore filter set both min and max ' +
-                                'to 0. Default = 0q'))
+                                'to 0. Default = 0'))
     parser.add_argument('--edit_min', action = 'store', metavar = 'X',
                         type = int, default = 0,
                         help = ('If the edit distance between the read ' +
@@ -127,7 +127,7 @@ def parse_arguments(args=None):
     if any([args.ignore_orientation, args.keep_trans, args.hybrid_reference]) and not args.paired:
         print("Paired-end options ignored for single-end alignment")
 
-    if not args.paired and args.mark_duplicates:
+    if not args.paired and args.mark_duplicate:
         print('Mark duplicate option ignored for single-end alignment')
 
     return args

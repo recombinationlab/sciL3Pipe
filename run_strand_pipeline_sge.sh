@@ -3,14 +3,13 @@
 # Usage: qsub run_pipeline_sge.sh
 
 snakemake \
---snakefile Snakefile_SNV \
+--snakefile Snakefile_strand \
 --use-conda \
 --conda-frontend mamba \
---configfile configs/config_SNV.yaml \
+--configfile configs/config_strand.yaml \
 -j 100 \
 --latency-wait 300 \
---restart-times 1 \
---cluster-config cluster_SNV.yaml \
+--cluster-config cluster_strand.yaml \
 --cluster "qsub -V -cwd \
 -l highp,h_data={cluster.mem},h_rt={cluster.time},nodes={cluster.nodes} \
 -pe shared {cluster.cpus} \

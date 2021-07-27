@@ -1,7 +1,7 @@
 
 # sciStrandPipe
 
-A Snakemake pipeline for processing and aligning sciStrand-seq data.
+A Snakemake pipeline for processing and aligning sci-L3-seq data.
 
 
 ## Running pipeline from raw fastq files:

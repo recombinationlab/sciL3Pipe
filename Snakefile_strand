@@ -125,6 +125,12 @@ try:
 except:
     package_path = None
 
+try:
+    deduplicate = config["deduplicate"]
+except:
+    deduplicate = False
+    INFO += "Not running BAM deduplication\n"
+
 # SPLIT = [OUTPUT_DIR[s] + f"logs/{s}_hybrid_split.log" for s in ALL_SAMPLES]
 
 # VCF = [OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.filtered.vcf.gz" for s in ALL_SAMPLES]
@@ -161,6 +167,8 @@ def get_results(wildcards):
             files_out.extend(list(set([OUTPUT_DIR.get(s) + f"{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"])))
             if run_filtering:
                 files_out.extend(list(set([OUTPUT_DIR.get(s) + f"{process_only}/breakpointR_{run_type}/breakPoint_qc_summary.csv"])))
+        if deduplicate:
+            files_out.extend([OUTPUT_DIR.get(s) + f"{process_only}/deduplicated/{s}.{process_only}.filt_dedup.bam"])
     return files_out
 
 
@@ -428,7 +436,8 @@ rule breakpointr:
 
 rule filter_breakpoints:
     input:
-        f"{{output_dir}}{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"
+        sciStrandR = qc_folder + "logs/scStrandR_installed.txt",
+        summary = f"{{output_dir}}{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"
     output:
         f"{{output_dir}}{process_only}/breakpointR_{run_type}/breakPoint_qc_summary.csv"
     conda:
@@ -456,4 +465,41 @@ rule filter_breakpoints:
         -b {cent_bed} \
         {params.filt} \
         {params.pckg} &> {log}
+        '''
+
+
+rule deduplicate_bam:
+    input:
+        sciStrandR = qc_folder + "logs/scStrandR_installed.txt",
+        bam = f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filt.bam"
+    output:
+        f"{{output_dir}}{process_only}/deduplicated/{{sample}}.{process_only}.filt_dedup.bam"
+    conda:
+        "envs/sciStrand_analysis_env.yaml"
+    threads:
+        1
+    params:
+        pckg = "" if package_path is None else f"-p {package_path}"
+    log:
+        f"{{output_dir}}logs/breakpointr_{{sample}}_deduplication.txt"
+    shell:
+        '''
+        dir=`dirname {output}`
+
+        Rscript scripts/run_deduplication.R \
+        -i {input.bam} \
+        -o $dir \
+        {params.pckg} \
+        -t {threads} &> {log}
+        '''
+
+rule install_sciStrandR:
+    output:
+        qc_folder + "logs/scStrandR_installed.txt"
+    conda:
+        "envs/sciStrand_analysis_env.yaml"
+    shell:
+        '''
+        git -C . pull origin master || git clone https://github.com/recombinationlab/sciStrandR . 
+        Rscript scripts/install_sciStrandR.R -p sciStrandR/ &> {output}
         '''

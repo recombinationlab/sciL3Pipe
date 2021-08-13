@@ -5,10 +5,10 @@ if(suppressMessages(!require(argparse, quietly = TRUE))){
   suppressMessages(library(argparse, quietly = TRUE))
 }
 
-if(suppressMessages(!require(remotes, quietly = TRUE))){
-  install.packages("remotes", repos = "http://cran.us.r-project.org")
-  suppressMessages(library(remotes, quietly = TRUE))
-}
+# if(suppressMessages(!require(remotes, quietly = TRUE))){
+#   install.packages("remotes", repos = "http://cran.us.r-project.org")
+#   suppressMessages(library(remotes, quietly = TRUE))
+# }
 
 if(suppressMessages(!require(BiocManager, quietly = TRUE))){
   install.packages("BiocManager", repos = "http://cran.us.r-project.org")
@@ -50,7 +50,7 @@ parse_arguments <- function(){
   parser$add_argument("-b", "--bed", dest="bed", type="character",
                       help="BED file with centromere coordinates")
 
-  # args <- parser$parse_args(args)
+  args <- parser$parse_args()
 
   return(args)
 }
@@ -61,10 +61,10 @@ main <- function(){
 
   args <- parse_arguments()
 
-  if(suppressMessages(!require(breakpointRAddon, quietly = TRUE))){
-    remotes::install_local(args$package, dependencies=TRUE, upgrade=FALSE, repos=BiocManager::repositories())
-    suppressMessages(library(breakpointRAddon, quietly = TRUE))
-  }
+  # if(suppressMessages(!require(breakpointRAddon, quietly = TRUE))){
+  #   remotes::install_local(args$package, dependencies=TRUE, upgrade=FALSE, repos=BiocManager::repositories())
+  #   suppressMessages(library(breakpointRAddon, quietly = TRUE))
+  # }
 
 
 # args <- parse_arguments(c("-i", "/mnt/data/tmp/data/",

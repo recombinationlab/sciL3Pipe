@@ -500,6 +500,6 @@ rule install_sciStrandR:
         "envs/sciStrand_analysis_env.yaml"
     shell:
         '''
-        git -C . pull origin master || git clone https://github.com/recombinationlab/sciStrandR . 
+        git -C sciStrandR pull origin master || git clone https://github.com/recombinationlab/sciStrandR sciStrandR
         Rscript scripts/install_sciStrandR.R -p sciStrandR/ &> {output}
         '''

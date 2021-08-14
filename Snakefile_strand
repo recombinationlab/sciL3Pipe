@@ -436,7 +436,7 @@ rule breakpointr:
 
 rule filter_breakpoints:
     input:
-        sciStrandR = qc_folder + "logs/scStrandR_installed.txt",
+        sciStrandR = "sciStrandR_installed.txt",
         summary = f"{{output_dir}}{process_only}/breakpointR_{run_type}/breakpoints/breakPointSummary.txt"
     output:
         f"{{output_dir}}{process_only}/breakpointR_{run_type}/breakPoint_qc_summary.csv"
@@ -470,7 +470,7 @@ rule filter_breakpoints:
 
 rule deduplicate_bam:
     input:
-        sciStrandR = qc_folder + "logs/scStrandR_installed.txt",
+        sciStrandR = "sciStrandR_installed.txt",
         bam = f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filt.bam"
     output:
         f"{{output_dir}}{process_only}/deduplicated/{{sample}}.{process_only}.filt_dedup.bam"
@@ -495,11 +495,13 @@ rule deduplicate_bam:
 
 rule install_sciStrandR:
     output:
-        qc_folder + "logs/scStrandR_installed.txt"
+        "sciStrandR_installed.txt"
     conda:
         "envs/sciStrand_analysis_env.yaml"
+    log:
+        qc_folder + "logs/sciStrandR_instalation.txt"
     shell:
         '''
         git -C sciStrandR pull origin master || git clone https://github.com/recombinationlab/sciStrandR sciStrandR
-        Rscript scripts/install_sciStrandR.R -p sciStrandR/ &> {output}
+        Rscript scripts/install_sciStrandR.R -p sciStrandR/ -o {output} &> {log}
         '''

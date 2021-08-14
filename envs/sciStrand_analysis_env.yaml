@@ -11,6 +11,7 @@ dependencies:
   - bcftools=1.11
   - java-jdk=8.0.92
   - bioconductor-breakpointr=1.10.0
+  - bioconductor-profileplyr=1.8.0
   - r-argparse=2.0.4
   - r-curl=4.3.2
   - r-cairo=1.5_12.2
@@ -19,3 +20,4 @@ dependencies:
   - r-ggrastr=0.2.3
   - libgit2=1.1.1
   - r-devtools=2.4.2
+  - git=2.23.0

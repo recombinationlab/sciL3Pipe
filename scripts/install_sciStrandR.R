@@ -16,6 +16,8 @@ parse_arguments <- function(){
 
   parser$add_argument("-p","--package", dest="package", type="character",
                       help="Path to source of breakpointRAddon to install if not installed already")
+  parser$add_argument("-o","--output", dest="output", type="character",
+                      help="If successful, will write out a file.")
 
   args <- parser$parse_args()
 
@@ -28,11 +30,11 @@ main <- function(){
 
 
     if(suppressMessages(!require(breakpointRAddon, quietly = TRUE))){
-        devtools::install(args$package, dependencies = TRUE)
+        devtools::install(args$package, dependencies = TRUE, upgrade = "never")
         suppressMessages(library(breakpointRAddon, quietly = TRUE))
     }
 
-    cat("Install finished")
+    cat("Install finished", file=args$output, sep="\n")
 
 }
 

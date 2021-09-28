@@ -1,21 +1,35 @@
 #!/usr/bin/env Rscript
 
 if(suppressMessages(!require(argparse, quietly = TRUE))){
-  install.packages("argparse")
+  install.packages("argparse", repos = "http://cran.us.r-project.org")
   suppressMessages(library(argparse, quietly = TRUE))
 }
 
-if(suppressMessages(!require(devtools, quietly = TRUE))){
-    install.packages("devtools", repos = "http://cran.us.r-project.org")
+if(suppressMessages(!require(remotes, quietly = TRUE))){
+    install.packages("remotes", repos = "http://cran.us.r-project.org")
     suppressMessages(library(remotes, quietly = TRUE))
 }
 
+if(suppressMessages(!require(BiocManager, quietly = TRUE))){
+  install.packages("BiocManager", repos = "http://cran.us.r-project.org")
+  suppressMessages(library(BiocManager, quietly = TRUE))
+}
+
+
+# TODO: work around to DO.db getting installed under R version 3 for some reason
+package_list <- data.frame(installed.packages())
+if(!(package_list$Built[grepl("DO.db", package_list$Package)] > 4)){
+  BiocManager::install("DO.db", force = TRUE)
+}
+
+
+
 
 parse_arguments <- function(){
-  parser <- ArgumentParser(description="Run breakpointR")
+  parser <- ArgumentParser(description="Install sciStrandR")
 
   parser$add_argument("-p","--package", dest="package", type="character",
-                      help="Path to source of breakpointRAddon to install if not installed already")
+                      help="Path to source of sciStrandR to install if not installed already")
   parser$add_argument("-o","--output", dest="output", type="character",
                       help="If successful, will write out a file.")
 
@@ -29,9 +43,9 @@ main <- function(){
     args <- parse_arguments()
 
 
-    if(suppressMessages(!require(breakpointRAddon, quietly = TRUE))){
-        devtools::install(args$package, dependencies = TRUE, upgrade = "never")
-        suppressMessages(library(breakpointRAddon, quietly = TRUE))
+    if(suppressMessages(!require(sciStrandR, quietly = TRUE))){
+        remotes::install_local(args$package, dependencies=TRUE, upgrade=FALSE, repos=BiocManager::repositories())
+        suppressMessages(library(sciStrandR, quietly = TRUE))
     }
 
     cat("Install finished", file=args$output, sep="\n")

@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 if(suppressMessages(!require(argparse, quietly = TRUE))){
-  install.packages("argparse")
+  install.packages("argparse", repos = "http://cran.us.r-project.org")
   suppressMessages(library(argparse, quietly = TRUE))
 }
 
@@ -10,15 +10,15 @@ if(suppressMessages(!require(argparse, quietly = TRUE))){
 #   suppressMessages(library(remotes, quietly = TRUE))
 # }
 
-if(suppressMessages(!require(BiocManager, quietly = TRUE))){
-  install.packages("BiocManager", repos = "http://cran.us.r-project.org")
-  suppressMessages(library(BiocManager, quietly = TRUE))
-}
+# if(suppressMessages(!require(BiocManager, quietly = TRUE))){
+#   install.packages("BiocManager", repos = "http://cran.us.r-project.org")
+#   suppressMessages(library(BiocManager, quietly = TRUE))
+# }
 
-if(suppressMessages(!require(rtracklayer, quietly = TRUE))){
-  BiocManager::install("rtracklayer")
-  suppressMessages(library(rtracklayer, quietly = TRUE))
-}
+# if(suppressMessages(!require(rtracklayer, quietly = TRUE))){
+#   BiocManager::install("rtracklayer")
+#   suppressMessages(library(rtracklayer, quietly = TRUE))
+# }
 
 parse_arguments <- function(){
   parser <- ArgumentParser(description="Run breakpointR")
@@ -43,8 +43,8 @@ parse_arguments <- function(){
   parser$add_argument("-c", "--centromere_distance", dest="centromere_distance", type="integer",
                       default=3000000,
                       help="Centromere proximal double event distance cutoff")
-  parser$add_argument("-p","--package", dest="package", type="character",
-                      help="Path to source of breakpointRAddon to install if not installed already")
+  # parser$add_argument("-p","--package", dest="package", type="character",
+  #                     help="Path to source of sciStrandR to install if not installed already")
   parser$add_argument("-f", "--filter", dest="filter", type="character", default=NULL,
                       help="Filter whole chromosome or a single location")
   parser$add_argument("-b", "--bed", dest="bed", type="character",
@@ -61,9 +61,9 @@ main <- function(){
 
   args <- parse_arguments()
 
-  # if(suppressMessages(!require(breakpointRAddon, quietly = TRUE))){
+  # if(suppressMessages(!require(sciStrandR, quietly = TRUE))){
   #   remotes::install_local(args$package, dependencies=TRUE, upgrade=FALSE, repos=BiocManager::repositories())
-  #   suppressMessages(library(breakpointRAddon, quietly = TRUE))
+  #   suppressMessages(library(sciStrandR, quietly = TRUE))
   # }
 
 

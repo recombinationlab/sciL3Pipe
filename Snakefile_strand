@@ -120,16 +120,22 @@ except:
     INFO += "No region filtering performed\n"
     filter_region = None
 
-try:
-    package_path = config["breakpointRAddon"]
-except:
-    package_path = None
+# try:
+#     package_path = config["sciStrandR"]
+# except:
+#     package_path = None
 
 try:
     deduplicate = config["deduplicate"]
 except:
     deduplicate = False
-    INFO += "Not running BAM deduplication\n"
+    INFO += "Not running BAM deduplication.\n"
+
+try:
+    overlaps = config["overlaps"]
+except:
+    overlaps = False
+    INFO += "Not running BAM overlap identification.\n"
 
 # SPLIT = [OUTPUT_DIR[s] + f"logs/{s}_hybrid_split.log" for s in ALL_SAMPLES]
 
@@ -169,6 +175,8 @@ def get_results(wildcards):
                 files_out.extend(list(set([OUTPUT_DIR.get(s) + f"{process_only}/breakpointR_{run_type}/breakPoint_qc_summary.csv"])))
         if deduplicate:
             files_out.extend([OUTPUT_DIR.get(s) + f"{process_only}/deduplicated/{s}.{process_only}.filt_dedup.bam"])
+        if overlaps:
+            files_out.extend([OUTPUT_DIR.get(s) +  f"{process_only}/aneuploidy/{s}.{process_only}.filt.bam_fragments_overlaps.rds"])
     return files_out
 
 
@@ -448,7 +456,7 @@ rule filter_breakpoints:
        dir_in = f"{{output_dir}}{process_only}/breakpointR_{run_type}/data/",
        out_dir = f"{{output_dir}}{process_only}/breakpointR_{run_type}/data_filtered/",
        filt = "" if filter_region is None else f"-f {filter_region}",
-       pckg = "" if package_path is None else f"-p {package_path}"
+    #    pckg = "" if package_path is None else f"-p {package_path}"
     log:
         f"{{output_dir}}logs/breakpointr_{run_type}_filtering.txt"
     shell:
@@ -463,8 +471,7 @@ rule filter_breakpoints:
         -d {distance_cutoff} \
         -c {centromere_cutoff} \
         -b {cent_bed} \
-        {params.filt} \
-        {params.pckg} &> {log}
+        {params.filt} &> {log}
         '''
 
 
@@ -478,8 +485,8 @@ rule deduplicate_bam:
         "envs/sciStrand_analysis_env.yaml"
     threads:
         1
-    params:
-        pckg = "" if package_path is None else f"-p {package_path}"
+    # params:
+    #     pckg = "" if package_path is None else f"-p {package_path}"
     log:
         f"{{output_dir}}logs/breakpointr_{{sample}}_deduplication.txt"
     shell:
@@ -489,9 +496,33 @@ rule deduplicate_bam:
         Rscript scripts/run_deduplication.R \
         -i {input.bam} \
         -o $dir \
-        {params.pckg} \
         -t {threads} &> {log}
         '''
+
+
+rule tn5_overlaps:
+    input:
+        sciStrandR = "sciStrandR_installed.txt",
+        bam = f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filt.bam"
+    output:
+        f"{{output_dir}}{process_only}/aneuploidy/{{sample}}.{process_only}.filt.bam_fragments_overlaps.rds"
+    threads:
+        1
+    # params:
+    #     pckg = "" if package_path is None else f"-p {package_path}"
+    log:
+        f"{{output_dir}}logs/{{sample}}_tn5_overlaps.txt"
+    shell:
+        '''
+        dir=`dirname {output}`
+
+        Rscript scripts/run_tn5_overlaps.R \
+        -i {input.bam} \
+        -o $dir \
+        -t {threads} &> {log}
+        '''
+
+ 
 
 rule install_sciStrandR:
     output:

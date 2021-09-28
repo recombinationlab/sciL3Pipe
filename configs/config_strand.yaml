@@ -47,9 +47,10 @@ distance_cutoff: 2000000
 centromere_cutoff: 3000000
 filter_region: 15
 # path to package source
-breakpointRAddon: "/mnt/data/Projects/breakpointRAddon/"
+# sciStrandR: "/mnt/data/Projects/sciStrandR/"
 ################################################################################
 # BAM deduplication
 ################################################################################
 deduplicate: True
+overlaps: True
 ################################################################################

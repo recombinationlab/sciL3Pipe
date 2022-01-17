@@ -34,12 +34,21 @@ try:
 except:
     bam_filter=""
 
-try:
-    prefix_1 = config["prefix_1"]
-    prefix_2 = config["prefix_2"]
-    process_only = config["process_only"]
-except:
-    sys.exit("ERROR: prefix or process only parameters not set in config")
+
+if config["run_split"]:
+    try:
+        prefix_1 = config["prefix_1"]
+        prefix_2 = config["prefix_2"]
+        process_only = config["process_only"]
+    except:
+        sys.exit("ERROR: prefix or process only parameters not set in config")
+else:
+    try:
+        process_only = config["process_only"]
+        prefix_1 = "1"
+        prefix_2 = "2"
+    except:
+        sys.exit("ERROR: process only parameter not set in config. Without split this can be considered a postfix.")
 
 try:
     lianti_path = config["lianti_path"]
@@ -151,18 +160,23 @@ except:
 
 def get_results(wildcards):
     # print(checkpoints.qc.get().output[0])
-    qc = pd.read_csv(checkpoints.qc.get().output[0], sep="\t")
 
-    # BAM has fewer than 30% of total reads or less than 10000 reads and will be excluded
-    if process_only == 'mouse': # BAM_1
-        samples = qc[(pd.to_numeric(qc['BAM_2_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
-    elif process_only == 'human': # BAM_2
-        samples = qc[(pd.to_numeric(qc['BAM_1_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+    if config["run_split"]:
+        qc = pd.read_csv(checkpoints.qc.get().output[0], sep="\t")
+
+        # BAM has fewer than 30% of total reads or less than 10000 reads and will be excluded
+        if process_only == 'mouse': # BAM_1
+            samples = qc[(pd.to_numeric(qc['BAM_2_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+        elif process_only == 'human': # BAM_2
+            samples = qc[(pd.to_numeric(qc['BAM_1_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+    else:
+        samples = ALL_SAMPLES
     
     files_out = []
 
     for s in samples:
-        s = os.path.basename(s).split("_hybrid_split.log")[0]
+        if config["run_split"]:
+            s = os.path.basename(s).split("_hybrid_split.log")[0]
         if filt_only and not run_breakpointr:
             files_out.extend([OUTPUT_DIR.get(s) + f"{process_only}/filtered/{s}.{process_only}.filt.bam"])
             files_out.extend([qc_folder + "logs/idxstats_summary.tsv"])
@@ -285,7 +299,7 @@ rule filter_bam:
     Filter excessive soft-clipping
     '''
     input:
-        f"{{output_dir}}{process_only}/{{sample}}.{process_only}.bam"
+        f"{{output_dir}}{process_only}/{{sample}}.{process_only}.bam" if config["run_split"] else lambda wildcards: FILES[os.path.basename(wildcards.sample)]
     output:
         f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filt.bam"
     conda:
@@ -349,8 +363,6 @@ rule lianti_pileup:
     -O, --output-type <b|u|z|v>                 b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]
     '''
     input:
-        # f"{{output_dir}}{prefix_1}/{{sample}}.{prefix_1}.bam",
-        # f"{{output_dir}}{prefix_2}/{{sample}}.{prefix_2}.bam"
         f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filt.bam"
     output:
         vcf=temp(f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz"),
@@ -397,14 +409,18 @@ rule vcf_annotation:
 
 
 def breakpointr_input(wildcards):
-    qc = pd.read_csv(checkpoints.qc.get().output[0], sep="\t")
 
-    # BAM has fewer than 30% of total reads or less than 10000 reads and will be excluded
-    if process_only == 'mouse': # BAM_1
-        samples = qc[(pd.to_numeric(qc['BAM_2_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
-    elif process_only == 'human': # BAM_2
-        samples = qc[(pd.to_numeric(qc['BAM_1_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
-    
+    if config["run_split"]:
+        qc = pd.read_csv(checkpoints.qc.get().output[0], sep="\t")
+
+        # BAM has fewer than 30% of total reads or less than 10000 reads and will be excluded
+        if process_only == 'mouse': # BAM_1
+            samples = qc[(pd.to_numeric(qc['BAM_2_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+        elif process_only == 'human': # BAM_2
+            samples = qc[(pd.to_numeric(qc['BAM_1_PofT']) < 30) & (pd.to_numeric(qc['Total']) > 10000)]['Files']
+    else:
+        samples = ALL_SAMPLES
+        
     files_out = []
 
     for s in samples:
@@ -506,6 +522,8 @@ rule tn5_overlaps:
         bam = f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filt.bam"
     output:
         f"{{output_dir}}{process_only}/aneuploidy/{{sample}}.{process_only}.filt.bam_fragments_overlaps.rds"
+    conda:
+        "envs/sciStrand_analysis_env.yaml"
     threads:
         1
     # params:

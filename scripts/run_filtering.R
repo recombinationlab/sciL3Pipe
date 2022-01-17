@@ -5,6 +5,10 @@ if(suppressMessages(!require(argparse, quietly = TRUE))){
   suppressMessages(library(argparse, quietly = TRUE))
 }
 
+if(suppressMessages(!require(sciStrandR, quietly = TRUE))){
+    suppressMessages(library(sciStrandR, quietly = TRUE))
+  }
+
 # if(suppressMessages(!require(remotes, quietly = TRUE))){
 #   install.packages("remotes", repos = "http://cran.us.r-project.org")
 #   suppressMessages(library(remotes, quietly = TRUE))

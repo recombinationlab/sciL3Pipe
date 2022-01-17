@@ -7,7 +7,7 @@ import gzip
 def parse_arguments(args=None):
 
     parser = argparse.ArgumentParser(description ='This script accepts and opens' +
-    'trimmed R1 and ordered R2 files splited according to sss barcodes, an reformatted' +
+    'trimmed R1 and ordered R2 files split according to sss barcodes, an reformatted' +
     'info file from cutadapt, a bridge sequence, a tn5 barcode list and a ligation' +
     'barcode list; then extracts and matches the nearest tn5 and ligation barcodes' +
     'and attach barcodes to R1 and R2 read names. The output files include new' +

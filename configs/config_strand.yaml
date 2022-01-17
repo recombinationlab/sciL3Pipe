@@ -8,6 +8,7 @@ qc_folder: "/mnt/data/sci-l3/test/SNV/yi292/"
 ################################################################################
 # BAM split
 ################################################################################
+run_split: False
 # chr assembly prefix
 prefix_1: "mouse"
 # non-chr assembly prefix
@@ -16,6 +17,7 @@ hybrid_filter: "NC_007605,hs37d5,Y"
 ################################################################################
 # BAM filter
 ################################################################################
+# If hybrid assembly, specify which to process, else can use genome assembly as a postfix
 process_only: "human"
 # Do not continue onto pileup and variant calling / annotation
 filter_only: True
@@ -45,9 +47,8 @@ run_filtering: True
 assembly: "hg38"
 distance_cutoff: 2000000
 centromere_cutoff: 3000000
-filter_region: 15
-# path to package source
-# sciStrandR: "/mnt/data/Projects/sciStrandR/"
+# Bed file of breakpoint regions to filter
+filter_region:
 ################################################################################
 # BAM deduplication
 ################################################################################

@@ -18,6 +18,7 @@ dependencies:
   - r-cairo=1.5_12.2
   - r-tiff=0.1_8
   - r-rvcheck=0.1.8
+  - r-ggpointdensity=0.1.0
   # - r-rsqlite=2.2.5
   # - libgit2=1.1.1
   # - r-devtools=2.4.2

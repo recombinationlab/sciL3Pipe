@@ -1,0 +1,57 @@
+input_folder:
+   - "/mnt/data/sci-l3/test/split_bam_bwa/yi292/yi292_CACGTG/"
+   - "/mnt/data/sci-l3/test/split_bam_bwa/yi292/yi292_GTGCAG/"
+output_folder:
+   - "/mnt/data/sci-l3/test/SNV/yi292/yi292_CACGTG/"
+   - "/mnt/data/sci-l3/test/SNV/yi292/yi292_GTGCAG/"
+qc_folder: "/mnt/data/sci-l3/test/SNV/yi292/"
+################################################################################
+# BAM split
+################################################################################
+run_split: False
+# chr assembly prefix
+prefix_1: "mouse"
+# non-chr assembly prefix
+prefix_2: "human"
+hybrid_filter: "NC_007605,hs37d5,Y"
+################################################################################
+# BAM filter
+################################################################################
+# If hybrid assembly, specify which to process, else can use genome assembly as a postfix
+process_only: "mouse"
+# Do not continue onto pileup and variant calling / annotation
+filter_only: True
+mark_duplicate: False
+################################################################################
+# bcftools pileup
+################################################################################
+ref_fa: "/u/project/yeastyin/chovanec/genomes/mm10/mm10.fa"
+vcf_regions: "/"
+################################################################################
+# VCF annotation
+################################################################################
+# snpsift_path: "/mnt/data/snpEff/SnpSift.jar"
+# dbsnp: "/mnt/data/genomes/GRCh38.p13/GCF_000001405.25.gz"
+################################################################################
+# BreakpointR
+################################################################################
+run_breakpointr: False
+blacklist: "/mnt/data/genomes/hg19-blacklist.v2.ensembl.bed"
+# haploid or diploid 
+type: "haploid"
+################################################################################
+# Breakpoint filtering
+################################################################################
+run_filtering: False
+# hg19, hg38 or mm10
+assembly: "hg38"
+distance_cutoff: 2000000
+centromere_cutoff: 3000000
+# Bed file of breakpoint regions to filter
+filter_region:
+################################################################################
+# BAM deduplication
+################################################################################
+deduplicate: True
+overlaps: True
+################################################################################

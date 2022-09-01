@@ -47,3 +47,10 @@ install_sciStrandR:
     nodes: 1
     output: "{qc_folder}logs/cluster/{rule}.out"
     error: "{qc_folder}logs/cluster/{rule}.err"
+bcftools_pileup:
+    time: "05:00:00"
+    mem: 5g
+    cpus: 10
+    nodes: 1
+    output: "{wildcards.output_dir}logs/cluster/{rule}.out"
+    error: "{wildcards.output_dir}logs/cluster/{rule}.err"

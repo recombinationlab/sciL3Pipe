@@ -50,23 +50,6 @@ else:
     except:
         sys.exit("ERROR: process only parameter not set in config. Without split this can be considered a postfix.")
 
-try:
-    lianti_path = config["lianti_path"]
-    assert shutil.which(lianti_path) is not None, "lianti not executable or does not exist"
-except:
-    sys.exit("lianti not found")
-
-try:
-    snpsift_path = config["snpsift_path"]
-except:
-    sys.exit("SnpSift.jar not in config file")
-
-assert shutil.which(snpsift_path) is not None, "SnpSift.jar not executable or does not exist"
-
-try:
-    qc_folder = config["qc_folder"]
-except:
-    sys.exit("Specify output folder for QC file")
 
 
 try:
@@ -74,6 +57,29 @@ try:
     INFO += "Only filtering\n"
 except:
     INFO += "Calling SNVs\n"
+
+if not filt_only:
+    try:
+        lianti_path = config["lianti_path"]
+        assert shutil.which(lianti_path) is not None, "lianti not executable or does not exist"
+    except:
+        sys.exit("lianti not found")
+
+    try:
+        snpsift_path = config["snpsift_path"]
+    except:
+        sys.exit("SnpSift.jar not in config file")
+
+    assert shutil.which(snpsift_path) is not None, "SnpSift.jar not executable or does not exist"
+else:
+    lianti_path = ""
+    snpsift_path = ""
+
+try:
+    qc_folder = config["qc_folder"]
+except:
+    sys.exit("Specify output folder for QC file")
+
 
 try:
     run_breakpointr = config["run_breakpointr"]
@@ -330,7 +336,7 @@ rule idxstats_qc:
     Summary of idxstats for all BAM files
     '''
     input:
-        [OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.bam" for s in ALL_SAMPLES]
+        [OUTPUT_DIR[s] + f"{process_only}/{s}.{process_only}.bam" for s in ALL_SAMPLES] if config["run_split"] else list(chain(*[FILES[s] for s in ALL_SAMPLES]))
     output:
         qc_folder + "logs/idxstats_summary.tsv"
     conda:
@@ -349,59 +355,6 @@ rule idxstats_qc:
         '''
 
 
-################################################################################
-# SNV calling and annotation
-################################################################################
-
-rule lianti_pileup:
-    '''
-    tabix for SnpSift
-    only keep annotated files
-
-    -v/V, --types/--exclude-types <list>        select/exclude comma-separated list of variant types: snps,indels,mnps,ref,bnd,other [null]
-    -m/M, --min-alleles/--max-alleles <int>     minimum/maximum number of alleles listed in REF and ALT (e.g. -m2 -M2 for biallelic sites)
-    -O, --output-type <b|u|z|v>                 b: compressed BCF, u: uncompressed BCF, z: compressed VCF, v: uncompressed VCF [v]
-    '''
-    input:
-        f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filt.bam"
-    output:
-        vcf=temp(f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz"),
-        tbi=temp(f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz.tbi")
-    conda:
-        "envs/sciStrand_analysis_env.yaml"
-    log:
-        f"{{output_dir}}logs/{{sample}}_lianti_pileup.log"
-    params:
-        fa_ref=config["ref_fa"]
-    shell:
-        '''
-        {lianti_path} pileup \
-        -cf {params.fa_ref} \
-        -C -q1,1 -Q20,20 -s2 -P20 -L 1 \
-        {input} |
-        grep -v "0,0:0,0:0$" | \
-        bcftools view -v snps -m 2 -M 2 -O z -o {output.vcf} &> {log}
-
-        tabix -p vcf {output.vcf}
-        '''
-
-rule vcf_annotation:
-    input:
-        vcf=f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz",
-        tbi=f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz.tbi"
-    output:
-        f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filtered.vcf.gz"
-    conda:
-        "envs/sciStrand_analysis_env.yaml"
-    params:
-        dbsnp=config["dbsnp"]
-    shell:
-        '''
-        java -Xmx5G -Xms5G -jar {snpsift_path} annotate -id -noInfo  \
-        {params.dbsnp} \
-        {input.vcf} | \
-        bgzip > {output}
-        '''
 
 ################################################################################
 # BreakpointR
@@ -490,6 +443,9 @@ rule filter_breakpoints:
         {params.filt} &> {log}
         '''
 
+################################################################################
+# Deduplication and Tn5 overlaps
+################################################################################
 
 rule deduplicate_bam:
     input:
@@ -554,3 +510,61 @@ rule install_sciStrandR:
         git -C sciStrandR pull origin master || git clone https://github.com/recombinationlab/sciStrandR sciStrandR
         Rscript scripts/install_sciStrandR.R -p sciStrandR/ -o {output} &> {log}
         '''
+
+
+################################################################################
+# SNV calling and annotation
+################################################################################
+
+rule bcftools_pileup:
+    input:
+        f"{{output_dir}}{process_only}/deduplicated/{{sample}}.{process_only}.filt_dedup.bam"
+    output:
+        vcf=temp(f"{{output_dir}}{process_only}/SNV/{{sample}}.{process_only}.vcf.gz"),
+        # tbi=temp(f"{{output_dir}}{process_only}/SNV/{{sample}}.{process_only}.vcf.gz.tbi")
+    conda:
+        "envs/sciStrand_analysis_env.yaml"
+    log:
+        f"{{output_dir}}logs/{{sample}}_bcftools_pileup.log"
+    threads:
+        10
+    params:
+        fa_ref=config["ref_fa"]
+        vcf_regions=config["vcf_regions"]
+    shell:
+        '''
+        bcftools mpileup \
+        --threads {threads} \
+        --skip-indels --ignore-RG --min-MQ 1 --redo-BAQ --min-BQ 13 --per-sample-mF -a 'AD,ADF,ADR,DP,SP,SCR' \
+        --regions-file {params.vcf_regions} \
+        --fasta-ref {params.fa_ref} \
+        --output {output.vcf} \
+        {input}
+        '''
+
+# {lianti_path} pileup \
+# -cf {params.fa_ref} \
+# -C -q1,1 -Q20,20 -s2 -P20 -L 1 \
+# {input} |
+# grep -v "0,0:0,0:0$" | \
+# bcftools view -v snps -m 2 -M 2 -O z -o {output.vcf} &> {log}
+
+# tabix -p vcf {output.vcf}
+
+# rule vcf_annotation:
+#     input:
+#         vcf=f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz",
+#         tbi=f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.vcf.gz.tbi"
+#     output:
+#         f"{{output_dir}}{process_only}/filtered/{{sample}}.{process_only}.filtered.vcf.gz"
+#     conda:
+#         "envs/sciStrand_analysis_env.yaml"
+#     params:
+#         dbsnp=config["dbsnp"]
+#     shell:
+#         '''
+#         java -Xmx5G -Xms5G -jar {snpsift_path} annotate -id -noInfo  \
+#         {params.dbsnp} \
+#         {input.vcf} | \
+#         bgzip > {output}
+#         '''

@@ -1,0 +1,211 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "snakemake config file schema for sciL3Pipe"
+type: object
+
+properties:
+
+  output_dir:
+    type: string
+    description: "Directory to write output files"
+
+  fastqs:
+    type: string
+    description: "Path to JSON file produced by fastq2json.py"
+
+  split_lines:
+    type: integer
+    minimum: 1
+    description: "Number of lines to split input FASTQ files into (set very high to effectively disable splitting)"
+  
+  samples:
+    type: object
+    description: "Dictionary mapping sample IDs to SSS barcode files"
+    additionalProperties:
+      type: string
+
+  sss_mismatches:
+    type: integer
+    minimum: 0
+    description: "Allowed mismatches for SSS barcodes"
+
+  rt_mismatches:
+    type: integer
+    minimum: 0
+    description: "Allowed mismatches for RT barcodes"
+
+  rt_primer:
+    type: string
+    pattern: "^[ACGT]+$"
+    description: "RT primer sequence (DNA bases only)"
+
+  aligner:
+    type: string
+    enum: ["bwa", "bowtie2"]
+    description: "Aligner to use"
+
+  assembly:
+    type: string
+    description: "Genome assembly identifier (e.g. hg38, hg38_test)"
+
+  tn5_barcodes:
+    type: string
+    description: "Path to TN5 barcode list"
+
+  ligation_barcodes:
+    type: string
+    description: "Path to ligation barcode list"
+
+  tn5_mismatches:
+    type: integer
+    minimum: 0
+    description: "Allowed mismatches for TN5 barcodes"
+
+  ligation_mismatches:
+    type: integer
+    minimum: 0
+    description: "Allowed mismatches for ligation barcodes"
+
+  cutoff:
+    type: integer
+    minimum: 1
+    description: "Reads per single cell cutoff"
+
+  hybrid_reference:
+    type: boolean
+    description: "Whether to use a hybrid reference"
+
+  bwa_index:
+    type: object
+    description: "Dictionary mapping assemblies to BWA index paths"
+    additionalProperties:
+      type: string
+
+  bowtie2_index:
+    type: object
+    description: "Dictionary mapping assemblies to Bowtie2 index paths"
+    additionalProperties:
+      type: string
+
+  split_bam:
+    type: boolean
+    description: "Perform splitting of SSS BAMs into single-cell BAMs"
+
+  sss_bams:
+    type:
+      - "string"
+      - "null"
+    description: "Path to JSON file listing SSS BAMs (or null if not used)"
+
+  generate_summary:
+    type: boolean
+    description: "Generate summary metrics"
+
+  summary_for:
+    type: string
+    enum: ["wprefix", "woprefix"]
+    description: "Reference naming convention for summary metrics"
+
+  run_collisions:
+    type: boolean
+    description: "Whether to run collision analysis"
+
+  from_trimmed:
+    type: 
+      - string
+      - "null"
+    description: "Path to trimmed fastq JSON (produced by trimmed2json.py), else leave empty"
+
+  run_split:
+    type: boolean
+    description: "Whether to perform split processing for hybrid assemblies, will only be run if BAM filtering is also run."
+
+  prefix_1:
+    type: string
+    description: "Primary assembly prefix (e.g., 'mouse')"
+
+  prefix_2:
+    type: string
+    description: "Secondary assembly prefix (e.g., 'human')"
+
+  hybrid_filter:
+    type: 
+      - string
+      - "null"
+    description: "Comma-separated list of sequences to exclude (e.g., 'NC_007605,hs37d5')"
+
+  process_only:
+    type: string
+    description: "Subset of hybrid assembly to process, e.g. 'mouse' or 'human'"
+  
+  additional_filter:
+    type: 
+      - string
+      - "null"
+    description: "Additional filter or genome name (e.g., hs37d5)"
+
+  run_filter:
+    type: boolean
+    description: "Whether to perform single cell BAM filtering"
+
+  natsort_chromosomes:
+    type: boolean
+    description: "Whether to perform natural sort of chromosomes"
+
+  sample_assignment:
+    type: array
+    description: "Mapping of sample names to library/barcode info"
+    additionalProperties:
+      type: object
+      properties:
+        lib_SSS:
+          type:
+            - "array"
+            - "null"
+          description: "SSS barcode or null/empty if not used"
+          items:
+            type: string
+            pattern: "[^_/]+_[ACGT]{6}"
+        Tn5:
+          type:
+            - "array"
+            - "null"
+          description: "Tn5 barcode or null/empty if not used"
+          items:
+            type: string
+            pattern: "[ACGT]{8}"
+      required:
+        - lib_SSS
+        - Tn5
+
+required:
+  - fastqs
+  - split_lines
+  - samples
+  - sss_mismatches
+  - rt_mismatches
+  - rt_primer
+  - aligner
+  - assembly
+  - tn5_barcodes
+  - ligation_barcodes
+  - tn5_mismatches
+  - ligation_mismatches
+  - cutoff
+  - hybrid_reference
+  - bwa_index
+  - bowtie2_index
+  - split_bam
+  - generate_summary
+  - summary_for
+  - run_collisions
+  - from_trimmed
+  - run_split
+  - prefix_1
+  - prefix_2
+  - hybrid_filter
+  - process_only
+  - additional_filter
+  - run_filter
+  # - sample_assignment don't require for backward compatiblity
+
+additionalProperties: false

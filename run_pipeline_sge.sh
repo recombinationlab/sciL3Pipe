@@ -1,18 +1,11 @@
 #!/bin/bash
 
-# Usage: qsub run_pipeline_sge.sh
+unset LD_RUN_PATH_modshare
+unset LD_RUN_PATH
+unset LD_LIBRARY_PATH_modshare
 
 snakemake \
 --snakefile Snakefile \
---use-conda \
---conda-frontend mamba \
+--profile profiles/hoffman2_profile/ \
 --configfile configs/config.yaml \
--j 100 \
---latency-wait 300 \
---cluster-config cluster.yaml \
---cluster "qsub -V -cwd \
--l highp,h_data={cluster.mem},h_rt={cluster.time},nodes={cluster.nodes} \
--pe shared {cluster.cpus} \
--o {cluster.output} \
--e {cluster.error}"
-
+--apptainer-args "-B /u/project/yeastyin/chovanec/:/u/project/yeastyin/chovanec/"

@@ -1,0 +1,9 @@
+use-conda: True
+use-singularity: True
+
+rerun-triggers: mtime
+cores: 5
+latency-wait: 100
+rerun-incomplete: True
+keep-going: False
+printshellcmds: True

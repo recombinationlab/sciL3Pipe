@@ -1,0 +1,140 @@
+
+import yaml
+import glob
+
+
+containerized: "docker://peterch405/scil3pipe:latest"
+
+include: "rules/initialize.smk"
+
+################################################################################
+# Out files
+################################################################################
+
+def get_results(wildcards):
+
+    if SSS_FILES == None:
+        samples = ALL_SAMPLES
+    else:
+        samples = SSS_SAMPLES
+        
+    files_out = []
+
+    # log
+    files_out.extend([out_dir + "logs/config_" + run_date + "yaml"])
+
+    for s in samples:
+    
+        if config['split_bam']:
+            
+            if config['generate_summary']:
+                # SUMMARY
+                files_out.extend([out_dir + f"genome_coverage_{aligner}_{assembly}/{s}/single_cells/single_cell_summary_all_{summary_for}.txt"])
+                files_out.extend([out_dir + "logs/sss_logs.html", out_dir + "logs/background_estimate.html", out_dir + "logs/background_estimate.csv"])
+            else:
+                files_out.extend([out_dir + f"files_{aligner}_{assembly}/{s}_{summary_for}.list"])
+                
+            if sss_bam_start:
+            
+                files_out.extend(expand(out_dir + f"merged_sss_bam/{s}/{{sss}}.PE.{aligner}.{assembly}.srt.bam",
+                                 sss=[*SSS_FILES.get(s)]))
+                files_out.extend(expand(out_dir + f"split_bam_{aligner}_{assembly}/{s}/{{sss}}",
+                                 sss=[*SSS_FILES.get(s)]))
+            
+            else:
+                # files_out.extend([out_dir + f'logs/{s}_{aligner}_{assembly}.align_all_done.txt'])
+                files_out.extend([out_dir + f"sss_json_{aligner}_{assembly}/{s}/sss_samples.json"])
+                if not trimmed_start:
+                    # FastQC
+                    files_out.extend([out_dir + f"fastqc/{s}.R1_fastqc.html", out_dir + f"fastqc/{s}.R2_fastqc.html"])
+
+            if config['run_filter']:
+                files_out.extend([out_dir + f"files_{aligner}_{assembly}/{s}_{process_only}.filt.list"])
+
+            if 'sample_assignment' in config:
+                files_out.extend([out_dir + f"samples_assigned_{aligner}_{assembly}/{s}.list"])
+            
+        else:
+            # files_out.extend([out_dir + f'logs/{s}_{aligner}_{assembly}.align_all_done.txt'])
+            files_out.extend([out_dir + f"sss_json_{aligner}_{assembly}/{s}/sss_samples.json"])
+
+            if not trimmed_start:
+                # FastQC
+                files_out.extend([out_dir + f"fastqc/{s}.R1_fastqc.html", out_dir + f"fastqc/{s}.R2_fastqc.html"])
+
+    # print("files_out", files_out)
+    return files_out
+
+
+
+################################################################################
+################################################################################
+# Rule all
+################################################################################
+################################################################################
+
+
+ruleorder: split_bam > index_bam
+
+
+rule all:
+    input: 
+        get_results
+ 
+
+################################################################################
+# Log
+################################################################################
+include: "rules/save_config.smk"
+
+
+################################################################################
+# Merge fastqs and run fastqc
+################################################################################
+include: "rules/merge_fq_fastqc.smk"
+
+################################################################################
+# SSS split
+################################################################################
+include: "rules/split_sss.smk"
+
+################################################################################
+# Trim and attach barcodes
+################################################################################
+include: "rules/extract_tn5_barcodes.smk"
+
+################################################################################
+# Align
+################################################################################
+include: "rules/align.smk"
+
+################################################################################
+# Split BAM into single cell BAMs
+################################################################################
+include: "rules/split_bam.smk"
+
+################################################################################
+# Summary metrics
+################################################################################
+include: "rules/summary_qc.smk"
+
+
+################################################################################
+# Split hybrid and filter BAMs
+################################################################################
+include: "rules/qc_filtering.smk"
+
+################################################################################
+# Assign sample
+################################################################################
+include: "rules/assign_sample.smk"
+
+
+################################################################################
+################################################################################
+# After succesful run
+################################################################################
+################################################################################
+# TODO: Delete all temporary directories in case temp() did not remove them
+# TODO: rm snakejob group files? find out how to set up capture of snakejob logs
+# TODO: make a multiqc rule

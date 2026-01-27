@@ -1,0 +1,13 @@
+{
+    "yi401": {
+        "yi401_ACGCGA": [
+            "tests/bwa_alignment/yi401/yi401_ACGCGA.PE.bwa.hg38.srt.bam"
+        ],
+        "yi401_CGCTTG": [
+            "tests/bwa_alignment/yi401/yi401_CGCTTG.PE.bwa.hg38.srt.bam"
+        ],
+        "yi401_GTCCTA": [
+            "tests/bwa_alignment/yi401/yi401_GTCCTA.PE.bwa.hg38.srt.bam"
+        ]
+    }
+}

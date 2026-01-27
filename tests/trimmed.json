@@ -1,0 +1,16 @@
+{
+    "yi401": {
+        "yi401_ACGCGA": [
+            "trimmed_fastq/yi401/yi401_ACGCGA.R1.trimmed.attached.fastq.gz",
+            "trimmed_fastq/yi401/yi401_ACGCGA.R2.trimmed.attached.fastq.gz"
+        ],
+        "yi401_CGCTTG": [
+            "trimmed_fastq/yi401/yi401_CGCTTG.R1.trimmed.attached.fastq.gz",
+            "trimmed_fastq/yi401/yi401_CGCTTG.R2.trimmed.attached.fastq.gz"
+        ],
+        "yi401_GTCCTA": [
+            "trimmed_fastq/yi401/yi401_GTCCTA.R1.trimmed.attached.fastq.gz",
+            "trimmed_fastq/yi401/yi401_GTCCTA.R2.trimmed.attached.fastq.gz"
+        ]
+    }
+}

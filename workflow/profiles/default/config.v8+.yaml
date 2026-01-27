@@ -1,0 +1,9 @@
+use-conda: True
+use-apptainer: True
+
+rerun-triggers: mtime
+cores: 1
+latency-wait: 100
+rerun-incomplete: True
+keep-going: False
+printshellcmds: True

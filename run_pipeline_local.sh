@@ -1,13 +1,14 @@
 #!/bin/bash
 
-# Usage: bash run_pipeline_local.sh
-
 snakemake \
---snakefile Snakefile \
---use-conda \
---conda-frontend mamba \
---cores 2 \
---configfile configs/config_yi331.yaml
+--configfile configs/config.yaml \
+--apptainer-args "-B /mnt/data/Projects_sync/sciL3Pipe:/mnt/data/Projects_sync/sciL3Pipe,/media/chovanec/NVMe/genomes/GRCh38:/media/chovanec/NVMe/genomes/GRCh38" \
+--dry-run --debug-dag --notemp 
+#--apptainer-args "-B /mnt/d/SynologyDriveCloud/Projects/sciL3Pipe/tests/:/mnt/d/SynologyDriveCloud/Projects/sciL3Pipe/tests/,/mnt/e/genomes/GRCh38/:/genomes/GRCh38/" \
 
-# TODO: --conda-prefix /path/to/shared/environment
-# TODO: working dir
+
+# --apptainer-args
+# --singularity-args "-B /mnt/data/Projects_sync/sciL3Pipe:/mnt/data/Projects_sync/sciL3Pipe,/media/chovanec/NVMe/genomes/GRCh38:/media/chovanec/NVMe/genomes/GRCh38" \
+
+
+

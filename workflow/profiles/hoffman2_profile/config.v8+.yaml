@@ -1,0 +1,88 @@
+use-conda: True
+use-apptainer: True
+
+rerun-triggers: mtime
+latency-wait: 100
+jobs: 20
+keep-going: False
+rerun-incomplete: True
+printshellcmds: True
+cores: 10
+# groups:
+#   - bed_files=groupjob1
+#   - genome_coverage=groupjob2
+#   - collisions=groupjob3
+group-components:
+  - groupjob_idx=100
+  - groupjob_bed=100
+  - groupjob_gc=100
+  - groupjob_col=100
+max-jobs-per-second: 10 #default 10
+max-status-checks-per-second: 1 #default 10
+
+
+executor: cluster-hoffman2
+cluster-hoffman2-submit-cmd: qsub -V -cwd -l highp,h_data={resources.mem},h_rt={resources.time} -pe shared {resources.cpus} -e logs/{rule}-{jobid}.err -o logs/{rule}-{jobid}.out
+cluster-hoffman2-cancel-cmd: qdel
+# cluster-config: cluster.yaml
+# cluster: qsub -V -cwd -l highp,h_data={cluster.mem},h_rt={cluster.time},nodes={cluster.nodes} -pe shared {cluster.cpus} -o {cluster.output} -e {cluster.error}
+
+
+default-resources:
+    time: "'10:00:00'"
+    mem: 30g
+    cpus: 1
+
+set-resources:
+  cutadapt:
+      time: "'5:00:00'"
+      mem: 5g
+      cpus: 5
+  attach_tn5_barcodes:
+      time: "'5:00:00'"
+      mem: 20g
+      cpus: 1
+  bowtie2_align_pe:
+      time: "'10:00:00'"
+      mem: 6g
+      cpus: 10
+  bwa_align_pe:
+      time: "'10:00:00'"
+      mem: 6g
+      cpus: 10
+  sort_index_markdup_pe:
+      time: "'10:00:00'"
+      mem: 5g
+      cpus: 5
+  qc_plots:
+      time: "'5:00:00'"
+      mem: 5g
+      cpus: 5
+  summary:
+      time: "'5:00:00'"
+      mem: 5g
+      cpus: 1
+  log_config:
+      time: "'1:00:00'"
+      mem: 1g
+      cpus: 1
+  merge_sss_bam:
+      time: "'10:00:00'"
+      mem: 5g
+      cpus: 5
+  index_bam:
+      time: "'0:10:00'"
+      mem: 1g
+      cpus: 1
+  genome_coverage:
+      time: "'0:10:00'"
+      mem: 1g
+      cpus: 1
+  bed_files:
+      time: "'0:10:00'"
+      mem: 1g
+      cpus: 1
+  collisions:
+      time: "'0:10:00'"
+      mem: 1g
+      cpus: 1

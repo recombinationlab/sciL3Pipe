@@ -1,0 +1,10 @@
+{
+    "yi401": {
+        "R1": [
+            "tests/fastqs/yi401_chr1_S1_L001_R1_001.fq.gz"
+        ],
+        "R2": [
+            "tests/fastqs/yi401_chr1_S1_L001_R2_001.fq.gz"
+        ]
+    }
+}

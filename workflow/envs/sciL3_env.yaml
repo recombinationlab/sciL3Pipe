@@ -1,0 +1,21 @@
+name: sciL3_env
+channels:
+  - bioconda
+  - anaconda
+  - conda-forge
+dependencies:
+  - coreutils=9.5
+  - bwa=0.7.18
+  - bowtie2=2.5.4
+  - samtools=1.20
+  - pysam=0.22.1
+  - matplotlib=3.9.2
+  - bedtools=2.31.1
+  - pyfastx=2.1.0
+  - python-levenshtein=0.12.2
+  - natsort=7.1.1
+  - pigz=2.8
+  - cutadapt=4.9
+  - fastqc=0.12.1
+  - seqkit=2.8.2
+  - pandas=2.3.2

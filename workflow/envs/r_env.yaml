@@ -1,0 +1,20 @@
+name: r_env
+channels:
+  - bioconda
+  - anaconda
+  - conda-forge
+dependencies:
+    - r-base=4.3.1
+    - r-argparse=2.2.2
+    - r-ggbeeswarm=0.7.2
+    - r-plotly=4.11.0
+    - r-htmlwidgets=1.6.4
+    - bioconductor-genomicranges=1.52.0
+    - bioconductor-rtracklayer=1.60.0
+    - bioconductor-biocgenerics=0.46.0
+    - bioconductor-iranges=2.34.1
+    - r-dosnow=1.0.20
+    - r-foreach=1.5.2
+    - r-doparallel=1.0.17
+    - r-tidyverse=2.0.0
+    - jq=1.7

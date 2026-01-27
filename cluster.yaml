@@ -1,64 +1,70 @@
 __default__:
-    time: "05:00:00"
-    mem: 20g
+    time: "10:00:00"
+    mem: 30g
     cpus: 1
-    nodes: 1
-    output: "{out_dir}logs/cluster/{rule}.{wildcards.sample}.out"
-    error: "{out_dir}logs/cluster/{rule}.{wildcards.sample}.err"
-bgzip_sss_fastq:
-    time: "01:00:00"
-    mem: 2g
-    cpus: 10
     nodes: 1
     output: "{out_dir}logs/cluster/{rule}.{wildcards.sample}.out"
     error: "{out_dir}logs/cluster/{rule}.{wildcards.sample}.err"
 cutadapt:
     time: "5:00:00"
     mem: 5g
-    cpus: 10
+    cpus: 5
     nodes: 1
     output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
     error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
 attach_tn5_barcodes:
-    time: "1:00:00"
-    mem: 2g
-    cpus: 10
+    time: "5:00:00"
+    mem: 20g
+    cpus: 1
     nodes: 1
     output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
     error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
 bowtie2_align_pe:
-    time: "5:00:00"
-    mem: 5g
+    time: "10:00:00"
+    mem: 6g
     cpus: 10
     nodes: 1
     output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
     error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
 bwa_align_pe:
-    time: "5:00:00"
-    mem: 5g
+    time: "10:00:00"
+    mem: 6g
     cpus: 10
     nodes: 1
     output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
     error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
 sort_index_markdup_pe:
-    time: "5:00:00"
+    time: "10:00:00"
     mem: 5g
-    cpus: 10
+    cpus: 5
     nodes: 1
     output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
     error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
 qc_plots:
     time: "5:00:00"
     mem: 5g
-    cpus: 10
+    cpus: 5
     nodes: 1
     output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
     error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"
 summary:
-    time: "1:00:00"
+    time: "5:00:00"
     mem: 5g
     cpus: 1
     nodes: 1
     output: "{out_dir}logs/cluster/{rule}.out"
     error: "{out_dir}logs/cluster/{rule}.err"
- 
+log_config:
+    time: "1:00:00"
+    mem: 1g
+    cpus: 1
+    nodes: 1
+    output: "{out_dir}logs/cluster/{rule}.out"
+    error: "{out_dir}logs/cluster/{rule}.err"
+merge_sss_bam:
+    time: "10:00:00"
+    mem: 5g
+    cpus: 5
+    nodes: 1
+    output: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.out"
+    error: "{out_dir}logs/cluster/{wildcards.sample}/{rule}.{wildcards.sss}.err"

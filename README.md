@@ -1,5 +1,5 @@
 
-# sciStrandPipe
+# sciL3Pipe
 
 A Snakemake pipeline for processing and aligning sci-L3-seq data.
 
@@ -174,3 +174,32 @@ Sometimes snakemake will not recognize output files and produce an error:
 This might be due to filesystem latency. If that is the case, consider to increase the wait time with --latency-wait. completed successfully, but some output files are missing.
 ```
 It is safe to just restart the pipeline with the run script, additionally adding `--latency-wait <seconds>` to the run script may resolve future errors.
+
+
+## QC output
+
+Summary of reads for each single cells:
+`genome_coverage_bwa/single_cells/single_cell_summary_all.txt`
+
+| Cell ID | Mapped reads (counts R1 and R2, double counting) | Mapped reads MAPQ>0 | Unique reads by R1 start and end | Mapped reads MAPQ>0 over R1 start and end (IVT over Tn5 ratio) |
+| :---                        | :--: | :--: | :--: |  ---:  |
+|yy409_TTTCGC.TGATATTGGGGTACA |40376 |17783 |15879 |1.11991 |
+|yy409_TTTCGC.TGATATTGGCTTGAT |26650 |11328 |10137 |1.11749 |
+|yy409_TTTCGC.TGATATTGAGAGACT |10055 |4714  |4169  |1.13073 |
+|yy409_TTTCGC.TGATATTGCACTGTT |76566 |33888 |30170 |1.12324 |
+|yy409_TTTCGC.TGATATTGATAAAAG |19368 |8284  |7374  |1.12341 |
+
+
+Barcodes in BAM read names:
+`GAGTCTTT,TAGTCTA,GCTTG,TGTA,H00910:58:AACYNFGM5:1:2204:15656:40340`
+
+| Tn5 | Ligation | SSS | UMI |
+| :--- | :--: | :--: |  ---:  |
+| GAGTCTTT| GAGGCGA | CGCTTG | TTCT |
+
+
+
+For Snakemake v8+
+
+Install:
+`conda install snakemake-executor-plugin-cluster-generic`

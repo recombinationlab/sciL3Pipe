@@ -1,0 +1,25 @@
+use-conda: True
+conda-frontend: mamba
+use-singularity: True
+
+cluster-config: cluster.yaml
+cluster: qsub -V -cwd -l highp,h_data={cluster.mem},h_rt={cluster.time},nodes={cluster.nodes} -pe shared {cluster.cpus} -o {cluster.output} -e {cluster.error}
+
+rerun-triggers: mtime
+latency-wait: 100
+jobs: 20
+keep-going: False
+rerun-incomplete: True
+printshellcmds: True
+cores: 10
+# groups:
+#   - bed_files=groupjob1
+#   - genome_coverage=groupjob2
+#   - collisions=groupjob3
+group-components:
+  - groupjob_idx=100
+  - groupjob_bed=100
+  - groupjob_gc=100
+  - groupjob_col=100
+max-jobs-per-second: 10 #default 10
+max-status-checks-per-second: 1 #default 10

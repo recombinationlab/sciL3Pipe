@@ -8,6 +8,10 @@ properties:
     type: string
     description: "Directory to write output files"
 
+  temp_dir:
+    type: string
+    description: "Directory to write temporary files"
+
   fastqs:
     type: string
     description: "Path to JSON file produced by fastq2json.py"

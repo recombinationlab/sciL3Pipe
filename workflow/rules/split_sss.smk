@@ -80,7 +80,7 @@ checkpoint extract_split_sss:
         r1 = out_dir + "fastqs_split/{sample}/{sample}.R1.{sfq}.fastq.gz",
         r2 = out_dir + "fastqs_split/{sample}/{sample}.R2.{sfq}.fastq.gz"
     output:
-        temp(directory(out_dir + 'split_SSS_tmp/{sample}/{sfq}')) # does not work if this is a temp dir
+        temp(directory(temp_dir + 'split_SSS_tmp/{sample}/{sfq}')) # does not work if this is a temp dir
     conda:
         "../envs/sciL3_env.yaml"
     log:
@@ -147,14 +147,14 @@ def merge_sss_fastqs_input(wildcards, r=1):
 
     if r==1:
 
-        split_files.extend(expand(out_dir + f"split_SSS_tmp/{{sample}}/{{i}}/{{sss}}.R1.ordered.fastq.gz",
+        split_files.extend(expand(temp_dir + f"split_SSS_tmp/{{sample}}/{{i}}/{{sss}}.R1.ordered.fastq.gz",
                                 sample=wildcards.sample,
                                 sss=wildcards.sss,
                                 i=outputs_i))
 
     if r==2:
 
-        split_files.extend(expand(out_dir + f"split_SSS_tmp/{{sample}}/{{i}}/{{sss}}.R2.ordered.fastq.gz",
+        split_files.extend(expand(temp_dir + f"split_SSS_tmp/{{sample}}/{{i}}/{{sss}}.R2.ordered.fastq.gz",
                                 sample=wildcards.sample,
                                 sss=wildcards.sss,
                                 i=outputs_i))
@@ -169,8 +169,8 @@ rule merge_sss_fastqs:
         r1 = lambda wc: merge_sss_fastqs_input(wc, r=1),
         r2 = lambda wc: merge_sss_fastqs_input(wc, r=2)
     output:
-        r1 = out_dir + "split_SSS/{sample}/{sss}.R1.ordered.fastq.gz",
-        r2 = out_dir + "split_SSS/{sample}/{sss}.R2.ordered.fastq.gz"
+        r1 = temp_dir + "split_SSS/{sample}/{sss}.R1.ordered.fastq.gz",
+        r2 = temp_dir + "split_SSS/{sample}/{sss}.R2.ordered.fastq.gz"
     conda:
         "../envs/sciL3_env.yaml"
     log:

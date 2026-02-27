@@ -71,11 +71,8 @@ def assign_sample_input(wildcards):
             if s in wildcards.sample: # this will prevent running all samples, rather run just the wildcard sample
                 sss_keys = list(SSS_FILES.get(s).keys())
                 for i in sss_keys:
-                    # print('i', i)
                     output_j = glob.glob(f"{checkpoints.split_bam.get(sample=s, sss=i).output}/*.bam")
-                    # print('output_j', output_j)
                     outputs_j = [output.split('/')[-1].split('.bam')[0] for output in output_j]
-                    # print('outputs_j', outputs_j)
                     for j in outputs_j:
                         split_files.extend(expand(out_dir + f"split_bam_{aligner}_{assembly}/{s}/{i}/{j}.bam"))
 

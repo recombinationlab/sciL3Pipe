@@ -5,8 +5,8 @@ rule cutadapt:
     The --info-file, --rest-file and --wildcard-file options write out information only from the first read.
     '''
     input:
-        [out_dir + "split_SSS/{sample}/{sss}.R1.ordered.fastq.gz",
-         out_dir + "split_SSS/{sample}/{sss}.R2.ordered.fastq.gz"]
+        [temp_dir + "split_SSS/{sample}/{sss}.R1.ordered.fastq.gz",
+         temp_dir + "split_SSS/{sample}/{sss}.R2.ordered.fastq.gz"]
     output:
         fastq1=temp(out_dir + "trimmed_fastq/{sample}/{sss}.R1.trimmed.fq.gz"),
         fastq2=temp(out_dir + "trimmed_fastq/{sample}/{sss}.R2.trimmed.fq.gz"),

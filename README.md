@@ -4,6 +4,16 @@
 A Snakemake pipeline for processing and aligning sci-L3-seq data.
 
 
+Required packages:
+
+* Minimum required `snakemake 9.11.6`
+* `snakemake-executor-plugin-cluster-generic`
+* For hoffman2 specific executor:
+[snakemake-executor-plugin-cluster-hoffman2](https://github.com/peterch405/snakemake-executor-plugin-cluster-hoffman2)
+
+
+
+
 ## Running pipeline from raw fastq files:
 
 1. (Optional) Create a folder with symbolic links to fastq files
@@ -11,7 +21,7 @@ A Snakemake pipeline for processing and aligning sci-L3-seq data.
     ```ln -s <path to raw fastq> <path to fastqs folder>```
 
 2. Create sample.json file that informs the pipeline which fastq files correspond to which sample:
-    ```python /u/project/yeastyin/chovanec/pipelines/sciStrandPipe/fastq2json.py --fastq_dir /u/project/yeastyin/chovanec/lib293/fastqs/```
+    ```python fastq2json.py --fastq_dir tests/fastqs/```
 
     Will create a file with the following structure:
     ```
@@ -27,154 +37,193 @@ A Snakemake pipeline for processing and aligning sci-L3-seq data.
     }
     ```
 
-3. Create a config.yaml file specific to your sample. The config file contains pipeline input parameters. Example config file for sample yi293 is shown below, with parameters likely to change between runs highlighted with `<---`:
+3. Create a config.yaml file specific to your run. The config file contains pipeline input parameters. Example config that can be run to test files in included `configs/config.yaml` in this repo:
 
 ```
-# BWA or bowtie2
-aligner: "bwa"                              <------- Choose which aligner to use
+################################################################################
+# Input/Output
+################################################################################
 # output directory (include trailing /)
-output_dir: "/u/project/yeastyin/chovanec/lib293/" <------- Set output directory
-assembly: "hg38" <--- Assembly to align data to (corresponds to fields in indexes)
+output_dir: "tests/"
+# temporary directory for intermediate files
+temp_dir: "tests/temp/"
+# fastq file location produced by fastq2json.py
+fastqs: "tests/samples.json"
+# skip splitting input fastq files into smaller chunks to speed up processing
+split_lines: 1000000
 ################################################################################
 # SSS extract and split
 ################################################################################
-# fastq file location produced by fastq2json.py
-fastqs: "/u/project/yeastyin/chovanec/lib293/samples.json"  <--- Path to json
 # samples with corresponding SSS barcode file, must match fastqs
-samples: 
-    yi293: "barcodes/barcode_sss_lib293.txt" <------ Path to sample SSS barcodes
-    <----------------------------------------- Can specify multiple samples here
+samples:
+    yi401: "workflow/resources/barcodes/barcode_sss_401_nova.txt"
 sss_mismatches: 0
 rt_mismatches: 3
 rt_primer: GGGATGCAGCTCGCTCCTG
 ################################################################################
-# Tn5 and ligation barcode
+# Aligner settings
 ################################################################################
-# the round1 barcode list (on tn5) for splitting single cells
-tn5_barcodes: "barcodes/barcode_tn5.txt"
-# the round2 barcode list (by ligation) for splitting single cells
-ligation_barcodes: "barcodes/barcode_ligation_104.txt"
-tn5_mismatches: 1
-ligation_mismatches: 1
-# Reads per single cell to keep
-cutoff: 10000
-################################################################################   
-# Indexes
-################################################################################
-hybrid_reference: True
-bwa_index:
-    hg38: "/u/project/yeastyin/chovanec/genomes/hybrid/GRCh38.p13_GRCm38.p6.chr"
-bowtie2_index:
-    hg38: "/u/project/yeastyin/chovanec/genomes/hybrid/GRCh38.p13_GRCm38.p6.chr"
-```
-
-4. To run the pipeline on an sge cluster, use the `run_pipeline_sge.sh` script:
-
-```
-#!/bin/bash
-
-snakemake \
---snakefile Snakefile \
---use-conda \
---configfile configs/config_lib293.yaml \ <------ Will need to edit path to your config file
--j 100 \
---cluster-config cluster.yaml \
---cluster "qsub -V -cwd \
--l highp,h_data={cluster.mem},h_rt={cluster.time},nodes={cluster.nodes} \
--pe shared {cluster.cpus} \
--o {cluster.output} \
--e {cluster.error}"
-```
-To run:
-```
-bash run_pipeline_sge.sh
-```
-
-## Running pipeline from trimmed and attached fastq files:
-
-1. Create a directory structure `trimmed/<sample>` what will contain symbolic links to trimmed and attached fastq files. 
-    ```mkdir -p fastqs/yi293```
-    ```ln -s <path to trimmed attached fastq> <path to fastqs folder>```
-
-    The trimmed files are expected to have a specific formated file name and be gzip'ed (the pipeline will not recognize the files if named differently) e.g.:
-    ```
-    yi293_GAACCG.R1.trimmed.attached.fastq.gz
-    yi293_GAACCG.R2.trimmed.attached.fastq.gz
-    ```
-    ```
-    <sample>_<SSS barcode>.<R1 or R2>.trimmed.attached.fastq.gz
-    ```
-
-2. Create a config.yaml file specific to your sample. The config file is the same as above with the exception of omitting the fastqs json parameter (also you will notice the json generation step has not been run):
-
-```
-# BWA or bowtie2
-aligner: "bwa"                              
-# output directory (include trailing /)
-output_dir: "/u/project/yeastyin/chovanec/lib293/" 
+aligner: "bwa"
 assembly: "hg38"
-################################################################################
-# SSS extract and split
-################################################################################
-# fastq file location produced by fastq2json.py
-# fastqs: "/u/project/yeastyin/chovanec/lib293/samples.json"  <--- Comment out 
-# samples with corresponding SSS barcode file, must match fastqs
-samples: 
-    yi293: "barcodes/barcode_sss_lib293.txt"
-sss_mismatches: 0
-rt_mismatches: 3
-rt_primer: GGGATGCAGCTCGCTCCTG
+# assembly: "hg38_test"
+# start from trimmed fastq, not requiring prior files, file generated by trimmed2json.py
+from_trimmed: "tests/trimmed.json"
 ################################################################################
 # Tn5 and ligation barcode
 ################################################################################
 # the round1 barcode list (on tn5) for splitting single cells
-tn5_barcodes: "barcodes/barcode_tn5.txt"
+tn5_barcodes: "workflow/resources/barcodes/barcode_tn5.txt"
 # the round2 barcode list (by ligation) for splitting single cells
-ligation_barcodes: "barcodes/barcode_ligation_104.txt"
+ligation_barcodes: "workflow/resources/barcodes/barcode_ligation_104.txt"
 tn5_mismatches: 1
 ligation_mismatches: 1
-# Reads per single cell to keep
-cutoff: 10000
+# Reads per single cell to keep (default: 10000)
+cutoff: 2000
 ################################################################################   
 # Indexes
 ################################################################################
-hybrid_reference: True
+hybrid_reference: False
 bwa_index:
-    hg38: "/u/project/yeastyin/chovanec/genomes/hybrid/GRCh38.p13_GRCm38.p6.chr"
+    hg38: "/genomes/GRCh38/GRCh38"
 bowtie2_index:
-    hg38: "/u/project/yeastyin/chovanec/genomes/hybrid/GRCh38.p13_GRCm38.p6.chr"
+    hg38: "/genomes/bowtie2_indexes/GRCh38"
+################################################################################
+# BAM split into single cells
+################################################################################
+# perform splitting of SSS BAMs into single cell BAMs
+split_bam: True
+# SSS bam locations to split, produced by sss_bam2json.py
+# "tests/test_BAM/sss_samples.json"
+sss_bams: "tests/sss_samples.json"
+################################################################################
+# Summary metrics
+################################################################################
+# generate all files for summary metrics/QC, requires split_bam to have been run
+generate_summary: True
+# generate summary for sequences with prefix "wprefix" (chr prefix: chr1, chr2) or human without prefix "woprefix" (no prefix: 1,2,...X,Y)
+summary_for: "woprefix"
+run_collisions: False
+################################################################################
+# Hybrid BAM split
+################################################################################
+# Will only be run if BAM filter also run.
+run_split: True
+# chr assembly prefix
+prefix_1: "mouse"
+# non-chr assembly prefix
+prefix_2: "human"
+hybrid_filter: "NC_007605,hs37d5"
+################################################################################
+# BAM filter
+################################################################################
+run_filter: True
+natsort_chromosomes: True
+# If hybrid assembly, specify which to process, else can use genome assembly as a postfix
+process_only: "human"
+# If not running hybrid split, can specify filter here instead of hybrid_filter
+additional_filter: "hs37d5"
+################################################################################
+# Sample assignment
+################################################################################
+sample_assignment:
+    - H9_primed:
+        lib_SSS:
+            - yi401_CGCTTG
+            - yi401_GTCCTA
+        Tn5:
+            - "TGATATTG"
+            - "GATCCCGT"
+            - "CTCGATTA"
+            - "CATCAAGG"
+            - "TCCTTGTG"
+            - "GGTCATAT"
+            - "ATCGCGTT"
+    - H9_primed:
+        lib_SSS:
+            - yi401_ACGCGA
+        Tn5:
+            - "TGATATTG"
+            - "GATCCCGT"
+            - "CTCGATTA"
+            - "CATCAAGG"
+            - "TCCTTGTG"
+            - "GGTCATAT"
+            - "ATCGCGTT"
+    - WIBR3:
+        lib_SSS:
+            - yi401_ACGCGA
+            - yi401_CGCTTG
+            - yi401_GTCCTA
+        Tn5:
+            - "CATGCCCC"
+            - "GTTACGCG"
+            - "CCGCGCTT"
+            - "TCTTAGTG"
+            - "TCGGCCTA"
+            - "CTTTCTCT"
+            - "TCGCGTTT"
+    - LNS:
+        lib_SSS:
+            - yi401_ACGCGA
+            - yi401_CGCTTG
+            - yi401_GTCCTA
+        Tn5:
+            - "GTCAGTAG"
+            - "CCATGGAA"
+            - "ATGCTGCG"
+            - "GAGTCTTT"
+            - "TACGATAT"
+            - "ACCATTTA"
+            - "ATCGGGAC"
+            - "GACGTCGG"
+    - BJ5ta:
+        lib_SSS:
+            - yi401_ACGCGA
+            - yi401_CGCTTG
+            - yi401_GTCCTA
+        Tn5:
+            - "CATTGTGT"
+            - "TTTGACTC"
 ```
 
-3. To run the pipeline on an sge cluster, use the `run_pipeline_sge.sh` script:
+1. To run the pipeline:
 
 ```
-#!/bin/bash
-
-snakemake \
---snakefile Snakefile \
---use-conda \
---configfile configs/config_lib293.yaml \ <------ Will need to edit path to your config file
--j 100 \
---cluster-config cluster.yaml \
---cluster "qsub -V -cwd \
--l highp,h_data={cluster.mem},h_rt={cluster.time},nodes={cluster.nodes} \
--pe shared {cluster.cpus} \
--o {cluster.output} \
--e {cluster.error}"
-```
-To run:
-```
-bash run_pipeline_sge.sh
+snakemake --configfile configs/config.yaml
 ```
 
-## General troubleshooting
+Conveniance shell script is included `run_pipeline_local.sh` and `run_pipeline_sge.sh`
 
-Sometimes snakemake will not recognize output files and produce an error:
-```
-This might be due to filesystem latency. If that is the case, consider to increase the wait time with --latency-wait. completed successfully, but some output files are missing.
-```
-It is safe to just restart the pipeline with the run script, additionally adding `--latency-wait <seconds>` to the run script may resolve future errors.
 
+The pipeline uses docker container which is automatically pulled from dockerhub. Note, apptainer needs to be installed.
+
+
+## Running pipeline from trimmed fastq or SSS BAM files:
+
+The pipeline can alternatively be started from trimmed fastq or SSS BAM files. 
+
+To start from trimmed fastq files:
+1. Create trimmed.json file that informs the pipeline which fastq files correspond to which sample:
+
+    ```python trimmed2json.py --fastq_dir tests/trimmed_fastq/```
+
+    Similarly for starting from SSS BAMs:
+
+    ```python sss_bam2json.py --bam_dir tests/bwa_alignment/```
+
+
+
+2. Add the path to the json file in the `config.yaml`:
+
+```
+# start from trimmed fastq, not requiring prior files, file generated by trimmed2json.py
+from_trimmed: "tests/trimmed.json"
+```
+
+```
+# SSS bam locations to split, produced by sss_bam2json.py
+sss_bams: "tests/sss_samples.json"
+```
 
 ## QC output
 
@@ -198,8 +247,9 @@ Barcodes in BAM read names:
 | GAGTCTTT| GAGGCGA | CGCTTG | TTCT |
 
 
+# Report
 
-For Snakemake v8+
-
-Install:
-`conda install snakemake-executor-plugin-cluster-generic`
+A snakemake html report with QC and logs an be obtained by running:
+```
+snakemake --configfile configs/config.yaml --report report.html
+```

@@ -2,29 +2,12 @@
 
 # setwd("D://SynologyDriveCloud/Projects/sciL3Pipe/workflow/scripts/")
 
-# if(suppressMessages(!require(argparse, quietly = TRUE))){
-#   install.packages("argparse", repos = "http://cran.us.r-project.org")
-#   suppressMessages(library(argparse, quietly = TRUE))
-# }
-# 
-# if(suppressMessages(!require(parallel, quietly = TRUE))){
-#   install.packages("parallel", repos = "http://cran.us.r-project.org")
-#   suppressMessages(library(parallel, quietly = TRUE))
-# }
-# 
-# if(suppressMessages(!require(doSNOW, quietly = TRUE))){
-#   install.packages("doSNOW", repos = "http://cran.us.r-project.org")
-#   suppressMessages(library(doSNOW, quietly = TRUE))
-# }
-
 library(argparse)
 library(doSNOW)
 library(parallel)
 library(ggbeeswarm)
 library(dplyr)
 library(ggplot2)
-# library(plotly)
-# library(htmlwidgets)
 library(GenomicRanges)
 library(base64enc)
 

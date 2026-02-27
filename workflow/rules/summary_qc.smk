@@ -304,13 +304,13 @@ rule bkg_estimate:
     input:
         bkg_input()
     output:
-        html = report(out_dir + "logs/background_estimate.html", caption="../report/Background_estimate.rst"),
-        csv = report(out_dir + "logs/background_estimate.csv", caption="../report/Background_estimate.rst")
+        html = report(out_dir + f"logs/background_estimate_{aligner}_{assembly}.html", caption="../report/Background_estimate.rst"),
+        csv = report(out_dir + f"logs/background_estimate_{aligner}_{assembly}.csv", caption="../report/Background_estimate.rst")
     conda:
         "../envs/r_env.yaml"
     log:
-        stderr = out_dir + f"logs/bkg_estimate.err",
-        stdout = out_dir + f"logs/bkg_estimate.out"
+        stderr = out_dir + f"logs/bkg_estimate_{aligner}_{assembly}.err",
+        stdout = out_dir + f"logs/bkg_estimate_{aligner}_{assembly}.out"
     threads:
         20
     shell:
@@ -324,4 +324,20 @@ rule bkg_estimate:
         '''
 
 
-# TODO add Tn5 plate plots
+
+rule plate_qc:
+    input:
+         out_dir + f"genome_coverage_{aligner}_{assembly}/{{sample}}/single_cells/single_cell_summary_all_{summary_for}.txt"
+    output:
+        html = report(out_dir + "logs/{sample}_plate_qc.html", caption="../report/Plate_QC.rst")
+    conda:
+        "../envs/r_env.yaml"
+    log:
+        stderr = out_dir + "logs/{sample}_plate_qc.err",
+        stdout = out_dir + "logs/{sample}_plate_qc.out"
+    shell:
+        '''
+        Rscript workflow/scripts/plate_qc.R \
+        -i {input} \
+        -o {output.html} > {log.stdout} 2> {log.stderr}
+        '''

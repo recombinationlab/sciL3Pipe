@@ -30,7 +30,8 @@ def get_results(wildcards):
             if config['generate_summary']:
                 # SUMMARY
                 files_out.extend([out_dir + f"genome_coverage_{aligner}_{assembly}/{s}/single_cells/single_cell_summary_all_{summary_for}.txt"])
-                files_out.extend([out_dir + "logs/sss_logs.html", out_dir + "logs/background_estimate.html", out_dir + "logs/background_estimate.csv"])
+                files_out.extend([out_dir + "logs/sss_logs.html", out_dir + f"logs/background_estimate_{aligner}_{assembly}.html", out_dir + f"logs/background_estimate_{aligner}_{assembly}.csv"])
+                files_out.extend([out_dir + f"logs/{s}_plate_qc.html"])
             else:
                 files_out.extend([out_dir + f"files_{aligner}_{assembly}/{s}_{summary_for}.list"])
                 

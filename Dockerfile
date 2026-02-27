@@ -1,12 +1,12 @@
 FROM condaforge/miniforge3:latest
 LABEL io.github.snakemake.containerized="true"
-LABEL io.github.snakemake.conda_env_hash="aeb3c9e2c062cd88c3e85be7ce24ddad266575104f18ad478881b4f46c3930a4"
+LABEL io.github.snakemake.conda_env_hash="a6b865d15f4f2d136d7723806c5e6edd209261bbc266372b5f47c21a998e5167"
 
 # Step 2: Retrieve conda environments
 
 # Conda environment:
 #   source: workflow/envs/r_env.yaml
-#   prefix: /conda-envs/e2666ede98d6b4f761e29c414afc7b8c
+#   prefix: /conda-envs/0fe538d977611d1690443f23eb1a9284
 #   name: r_env
 #   channels:
 #     - bioconda
@@ -16,8 +16,7 @@ LABEL io.github.snakemake.conda_env_hash="aeb3c9e2c062cd88c3e85be7ce24ddad266575
 #       - r-base=4.3.1
 #       - r-argparse=2.2.2
 #       - r-ggbeeswarm=0.7.2
-#       - r-plotly=4.11.0
-#       - r-htmlwidgets=1.6.4
+#       - r-patchwork=1.3.0
 #       - bioconductor-genomicranges=1.52.0
 #       - bioconductor-rtracklayer=1.60.0
 #       - bioconductor-biocgenerics=0.46.0
@@ -27,8 +26,8 @@ LABEL io.github.snakemake.conda_env_hash="aeb3c9e2c062cd88c3e85be7ce24ddad266575
 #       - r-doparallel=1.0.17
 #       - r-tidyverse=2.0.0
 #       - jq=1.7
-RUN mkdir -p /conda-envs/e2666ede98d6b4f761e29c414afc7b8c
-COPY workflow/envs/r_env.yaml /conda-envs/e2666ede98d6b4f761e29c414afc7b8c/environment.yaml
+RUN mkdir -p /conda-envs/0fe538d977611d1690443f23eb1a9284
+COPY workflow/envs/r_env.yaml /conda-envs/0fe538d977611d1690443f23eb1a9284/environment.yaml
 
 # Conda environment:
 #   source: workflow/envs/sciL3_env.yaml
@@ -59,6 +58,6 @@ COPY workflow/envs/sciL3_env.yaml /conda-envs/da9669680debec9c1e74030c9717bac4/e
 
 # Step 3: Generate conda environments
 
-RUN conda env create --prefix /conda-envs/e2666ede98d6b4f761e29c414afc7b8c --file /conda-envs/e2666ede98d6b4f761e29c414afc7b8c/environment.yaml && \
+RUN conda env create --prefix /conda-envs/0fe538d977611d1690443f23eb1a9284 --file /conda-envs/0fe538d977611d1690443f23eb1a9284/environment.yaml && \
     conda env create --prefix /conda-envs/da9669680debec9c1e74030c9717bac4 --file /conda-envs/da9669680debec9c1e74030c9717bac4/environment.yaml && \
     conda clean --all -y

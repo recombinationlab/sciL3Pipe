@@ -11,14 +11,19 @@ import os, sys, pwd, re
 import socket, platform
 import subprocess
 import logging
-from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake.logging import logger, logger_manager
+# from snakemake_interface_executor_plugins.settings import ExecMode
+from packaging import version
+
+snakemake.utils.min_version("9.11.6")
+
+if version.parse(snakemake.__version__) >= version.parse("9.15.0"):
+    from snakemake.logging import logger
+else:
+    from snakemake.logging import logger, logger_manager
 
 v = datetime.now()
 run_date = v.strftime('%Y.%m.%d.')
 
-
-snakemake.utils.min_version("9.11.6")
 
 # TODO: config enforced by schema, don't need try except blocks
 ################################################################################
@@ -35,6 +40,12 @@ try:
 except:
     out_dir = ''
     INFO += 'Defaulting to working directory as output directory' + '\n' + (' ' * indent)
+
+try:
+    temp_dir = config['temp_dir']
+except:
+    temp_dir = out_dir
+    INFO += 'Defaulting to output directory as temporary directory' + '\n' + (' ' * indent)
 
 try:
     aligner = config['aligner']
@@ -195,7 +206,11 @@ extra_logfile = logdir / (datetime.now().isoformat().replace(":", "") + ".log")
 file_handler = logging.FileHandler(extra_logfile)
 file_handler.setLevel(logging.DEBUG)  # capture everything
 file_handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s"))
-logger_manager.logger.addHandler(file_handler)
+
+if version.parse(snakemake.__version__) >= version.parse("9.15.0"):
+    logger.addHandler(file_handler)
+else:
+    logger_manager.logger.addHandler(file_handler)
 
 
 #################################################################################
@@ -336,6 +351,7 @@ logger.info('    Command:            ' + cmdline)
 logger.info('')
 logger.info('    Base directory:     ' + workflow.basedir)
 logger.info('    Working directory:  ' + os.getcwd())
+logger.info('    Temporary directory:' + temp_dir)
 logger.info('    Config file(s):     ' + cfgfiles)
 logger.info('    Out directory:      ' + out_dir)
 logger.info('    Additional info:    ' + INFO)
